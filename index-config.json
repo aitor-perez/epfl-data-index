@@ -1,0 +1,63 @@
+{
+   "settings":{
+      "index":{
+         "number_of_shards":1,
+         "number_of_replicas":0,
+         "knn": true
+      },
+      "default_pipeline": "nlp-ingest-pipeline"
+   },
+   "mappings":{
+      "dynamic":true,
+      "dynamic_templates":[
+         {
+            "string_fields":{
+               "match_mapping_type":"string",
+               "mapping":{
+                  "type":"text",
+                  "fields":{
+                     "keyword":{
+                        "type":"keyword",
+                        "ignore_above":256
+                     }
+                  }
+               }
+            }
+         }
+      ],
+      "properties":{
+         "id":{
+            "type":"keyword"
+         },
+         "type":{
+            "type":"keyword"
+         },
+         "name":{
+            "type":"text",
+            "fields":{
+               "keyword":{
+                  "type":"keyword",
+                  "ignore_above":256
+               }
+            }
+         },
+         "text": {
+            "type":"text"
+         },
+         "url":{
+            "type":"keyword"
+         },
+         "created":{
+            "type":"date"
+         },
+         "updated":{
+            "type":"date"
+         },
+         "embedding":{
+           "type": "knn_vector",
+           "dimension": 4096,
+           "space_type": "l2"
+         }
+      }
+   }
+}

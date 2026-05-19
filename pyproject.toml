@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "epfl-data-index"
+version = "0.1.0"
+description = "Index EPFL research data (publications, professors, units) into OpenSearch"
+requires-python = ">=3.10"
+authors = [{ name = "Aitor Pérez", email = "aitor.perez@epfl.ch" }]
+dependencies = [
+    "numpy",
+    "opensearch-py",
+    "pandas",
+    "pydantic",
+    "python-dotenv",
+    "requests",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/epfl_data_index"]
