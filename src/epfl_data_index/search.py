@@ -2,7 +2,7 @@ from typing import Optional, Union
 
 from opensearchpy import OpenSearch
 
-from config import CONFIG
+from epfl_data_index.config import CONFIG
 
 client = OpenSearch(
     hosts=[{"host": CONFIG["OPENSEARCH_HOST"], "port": CONFIG["OPENSEARCH_PORT"]}],
