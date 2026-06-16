@@ -4,28 +4,21 @@ import json
 
 import numpy as np
 
-from opensearchpy import OpenSearch, helpers
+from opensearchpy import helpers
 
-from config import CONFIG, ROOT_DIR
+from client import get_client
 from models import Document, Professor, Unit
 from load import load_all
 
-INDEX_NAME = "test3"
-
-client = OpenSearch(
-    hosts=[{"host": "localhost", "port": 9200}],
-    http_auth=(CONFIG["OPENSEARCH_USER"], CONFIG["OPENSEARCH_PASSWORD"]),
-    use_ssl=True,
-    verify_certs=False,
-    ssl_show_warn=False,
-)
+INDEX_NAME = "test"
 
 
 def create_index():
+    client = get_client()
     if client.indices.exists(index=INDEX_NAME):
         client.indices.delete(index=INDEX_NAME)
 
-    with open(f"{ROOT_DIR}/data/index.json", "r", encoding="utf-8") as f:
+    with open(f"../../index-config.json", "r", encoding="utf-8") as f:
         index_body = json.load(f)
 
     client.indices.create(index=INDEX_NAME, body=index_body)
@@ -45,7 +38,7 @@ def index_documents(docs: list[Document]):
     ]
 
     bulk = helpers.parallel_bulk(
-        client,
+        get_client(),
         actions,
         thread_count=5,
         chunk_size=32,
@@ -60,6 +53,7 @@ def index_documents(docs: list[Document]):
 
 
 def _average_embeddings(doc_ids: list[str]) -> list[float] | None:
+    client = get_client()
     if not doc_ids:
         return None
 
@@ -81,6 +75,7 @@ def _average_embeddings(doc_ids: list[str]) -> list[float] | None:
 
 
 def update_embeddings(professors: list[Professor], units: list[Unit]):
+    client = get_client()
     for prof in professors:
         vector = _average_embeddings([p.id for p in prof.publications])
         if vector:
@@ -97,6 +92,10 @@ def update_embeddings(professors: list[Professor], units: list[Unit]):
 
 
 if __name__ == "__main__":
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
     publications, professors, units = load_all()
 
     create_index()

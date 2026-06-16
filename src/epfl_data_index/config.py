@@ -1,10 +1,9 @@
 import os
 
-CONFIG = {
-    "OPENSEARCH_HOST": os.environ["OPENSEARCH_HOST"],
-    "OPENSEARCH_PORT": os.environ["OPENSEARCH_PORT"],
-    "OPENSEARCH_USER": os.environ["OPENSEARCH_USER"],
-    "OPENSEARCH_PASSWORD": os.environ["OPENSEARCH_PASSWORD"],
-    "OPENSEARCH_INDEX_NAME": os.environ["OPENSEARCH_INDEX_NAME"],
-    "OPENSEARCH_EMBEDDING_MODEL_ID": os.environ["OPENSEARCH_EMBEDDING_MODEL_ID"],
-}
+
+class _Config:
+    def __getitem__(self, key):
+        return os.environ.get(key)
+
+
+CONFIG = _Config()

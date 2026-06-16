@@ -8,7 +8,7 @@ MODEL_ID = "41_9BZ0BrpQLIV_1Av_A"
 
 client = OpenSearch(
     hosts=[{"host": "localhost", "port": 9200}],
-    http_auth=(CONFIG["OPENSEARCH_USER"], CONFIG["OPENSEARCH_PASSWORD"]),
+    http_auth=(CONFIG["EDI_OPENSEARCH_USER"], CONFIG["EDI_OPENSEARCH_PASSWORD"]),
     use_ssl=True,
     verify_certs=False,
     ssl_show_warn=False,
@@ -18,7 +18,7 @@ client = OpenSearch(
 def _fetch_openalex_titles(query: str, n: int = 10) -> list[str]:
     resp = requests.get(
         "https://api.openalex.org/works",
-        params={"search": query, "per-page": n, "api-key": CONFIG["OPENALEX_API_KEY"]},
+        params={"search": query, "per-page": n, "api-key": CONFIG["EDI_OPENALEX_API_KEY"]},
     )
     resp.raise_for_status()
     return [r["display_name"] for r in resp.json()["results"] if r.get("display_name")]
