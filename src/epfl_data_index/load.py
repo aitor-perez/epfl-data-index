@@ -3,7 +3,7 @@ import io
 import pandas as pd
 import requests
 
-from models import (
+from epfl_data_index.models import (
     Professor, Publication, Unit,
     PublicationAuthor, PublicationUnit, ProfessorPublication, ProfessorUnit, UnitProfessor, UnitPublication,
 )
