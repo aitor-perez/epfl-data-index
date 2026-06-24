@@ -27,22 +27,22 @@ def fetch_all(doc_type: Optional[Union[str, list[str]]] = None):
     elif isinstance(doc_type, str):
         doc_type = [doc_type]
 
-    size = client.count(index=CONFIG["EDI_OPENSEARCH_INDEX_NAME"])["count"]
-
-    # We need to paginate if size > page_size
-    page_size = 500
-    needs_pagination = size > page_size
-
     if doc_type:
         query = {"terms": {"type": doc_type}}
     else:
         query = {"match_all": {}}
 
+    size = client.count(index=CONFIG["EDI_OPENSEARCH_INDEX_NAME"], body={"query": query})["count"]
+
+    # We need to paginate if size > page_size
+    page_size = 500
+    needs_pagination = size > page_size
+
     body = {
         "_source": {"includes": ["id", "type", "name", "text", "embedding"]},
         "size": page_size if needs_pagination else size,
         "query": query,
-        "sort": [{"_score": "desc"}, {"_id": "asc"}],
+        "sort": [{"_id": "asc"}],
     }
 
     # Point-in-time pagination
