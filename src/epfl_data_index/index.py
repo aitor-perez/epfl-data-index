@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from pathlib import Path
 
 import json
 
@@ -7,10 +8,13 @@ import numpy as np
 from opensearchpy import helpers
 
 from epfl_data_index.client import get_client
+from epfl_data_index.config import CONFIG
 from epfl_data_index.models import Document, Professor, Unit
 from epfl_data_index.load import load_all
 
-INDEX_NAME = "test"
+INDEX_CONFIG_PATH = Path(__file__).resolve().parents[2] / "index-config.json"
+
+INDEX_NAME = CONFIG["EDI_OPENSEARCH_INDEX_NAME"]
 
 
 def create_index():
@@ -18,7 +22,7 @@ def create_index():
     if client.indices.exists(index=INDEX_NAME):
         client.indices.delete(index=INDEX_NAME)
 
-    with open(f"../../index-config.json", "r", encoding="utf-8") as f:
+    with open(INDEX_CONFIG_PATH, "r", encoding="utf-8") as f:
         index_body = json.load(f)
 
     client.indices.create(index=INDEX_NAME, body=index_body)
