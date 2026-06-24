@@ -50,8 +50,9 @@ def index_documents(docs: list[Document]):
     )
 
     # Need to consume the generator for calls to run
-    for _ in bulk:
-        pass
+    for ok, info in bulk:
+        if not ok:
+            raise Exception(f"Indexing failed: {info}")
 
     print(f"Indexed {len(docs)} documents.")
 
