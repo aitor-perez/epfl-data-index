@@ -24,7 +24,7 @@ def embed(texts: list[str]) -> list[list[float]]:
     return results
 
 
-def fetch_all(doc_type: Optional[Union[str, list[str]]] = None):
+def fetch_all(doc_type: Optional[Union[str, list[str]]] = None, page_size: int = 500):
     client = get_client()
     if not doc_type:
         doc_type = []
@@ -36,15 +36,13 @@ def fetch_all(doc_type: Optional[Union[str, list[str]]] = None):
     else:
         query = {"match_all": {}}
 
-    size = client.count(index=CONFIG["EDI_OPENSEARCH_INDEX_NAME"], body={"query": query})["count"]
+    total = client.count(index=CONFIG["EDI_OPENSEARCH_INDEX_NAME"], body={"query": query})["count"]
 
-    # We need to paginate if size > page_size
-    page_size = 500
-    needs_pagination = size > page_size
+    needs_pagination = total > page_size
 
     body = {
         "_source": {"includes": ["id", "type", "name", "text", "embedding"]},
-        "size": page_size if needs_pagination else size,
+        "size": page_size if needs_pagination else total,
         "query": query,
         "sort": [{"_id": "asc"}],
     }
@@ -55,7 +53,7 @@ def fetch_all(doc_type: Optional[Union[str, list[str]]] = None):
     all_hits = []
 
     try:
-        remaining = size
+        remaining = total
         while True:
             # Fetch next batch
             body["size"] = min(page_size, remaining)
