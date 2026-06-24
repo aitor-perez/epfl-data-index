@@ -15,7 +15,11 @@ def embed(texts: list[str]) -> list[list[float]]:
         }
     )
 
-    results = [r["output"][0]["data"] for r in response["inference_results"]]
+    results = []
+    for i, r in enumerate(response.get("inference_results", [])):
+        if r.get("status_code") != 200 or "output" not in r or not r["output"]:
+            raise RuntimeError(f"Embedding inference failed for text at index {i}: {r}")
+        results.append(r["output"][0]["data"])
 
     return results
 
