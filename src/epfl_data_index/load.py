@@ -324,9 +324,12 @@ def load_all() -> tuple[list[Publication], list[Professor], list[Unit]]:
 if __name__ == "__main__":
     publications, professors, units = load_all()
     print(f"Loaded {len(publications)} publications, {len(professors)} professors, {len(units)} units")
-    print(f"Sample publication:")
-    print(publications[0].model_dump())
-    print(f"Sample professor:")
-    print(professors[0].model_dump())
-    print(f"Sample unit:")
-    print(units[0].model_dump())
+    if publications:
+        print(f"Sample publication:")
+        print(publications[0].model_dump())
+    if professors:
+        print(f"Sample professor:")
+        print(professors[0].model_dump())
+    if units:
+        print(f"Sample unit:")
+        print(units[0].model_dump())
