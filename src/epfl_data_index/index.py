@@ -6,9 +6,9 @@ import numpy as np
 
 from opensearchpy import helpers
 
-from client import get_client
-from models import Document, Professor, Unit
-from load import load_all
+from epfl_data_index.client import get_client
+from epfl_data_index.models import Document, Professor, Unit
+from epfl_data_index.load import load_all
 
 INDEX_NAME = "test"
 
