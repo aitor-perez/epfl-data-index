@@ -102,22 +102,18 @@ def search(query: Union[str, list[str]], doc_type: Optional[Union[str, list[str]
         "size": size,
         "query": {
             "bool": {
-                "should": [{
-                    "dis_max": {
-                        "queries": [
-                            {
-                                "neural": {
-                                    "embedding": {
-                                        "query_text": q,
-                                        "model_id": CONFIG["EDI_OPENSEARCH_EMBEDDING_MODEL_ID"],
-                                        "k": size,
-                                    }
-                                }
+                "should": [
+                    {
+                        "neural": {
+                            "embedding": {
+                                "query_text": q,
+                                "model_id": CONFIG["EDI_OPENSEARCH_EMBEDDING_MODEL_ID"],
+                                "k": size,
                             }
-                            for q in query
-                        ]
+                        }
                     }
-                }]
+                    for q in query
+                ]
             }
         },
     }
