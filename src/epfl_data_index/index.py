@@ -33,7 +33,7 @@ def create_index(index_name: Optional[str] = None):
     logger.info(f"Created index: {index_name}")
 
 
-def index_documents(docs: list[Document], index_name: Optional[str] = None):
+def index_documents(docs: list[Document], index_name: Optional[str] = None) -> None:
     """Index a list of Pydantic Document models in bulk.
 
     Documents must have `id`, `type`, `name` and `text` set. `created` and

@@ -17,7 +17,7 @@ def test_knn_query_building():
     mock_client.get.return_value = {
         "_source": {"embedding": [0.1, 0.2, 0.3]}
     }
-    mock_client.search.return_value = {"hits": {"hits": [{"_id": "2", "_source": {"id": "2"}}], "total": {"value": 1, "relation": "eq"}}}
+    mock_client.search.return_value = {"hits": {"hits": [{"_id": "2", "_score": 0.85, "_source": {"id": "2"}}], "total": {"value": 1, "relation": "eq"}}}
 
     with patch("epfl_data_index.search.get_client", return_value=mock_client):
         results = knn(id="unit:123", type="publication", size=10)
@@ -32,20 +32,20 @@ def test_knn_query_building():
 
     assert body["query"]["bool"]["must_not"] == {"term": {"_id": "unit:123"}}
     assert {"terms": {"type": ["publication"]}} in body["query"]["bool"]["filter"]
-    assert results == [{"id": "2"}]
+    assert results == [{"id": "2", "_score": 0.85}]
 
 
 def test_knn_excludes_text_and_embeddings_by_default():
     mock_client = MagicMock()
     mock_client.get.return_value = {"_source": {"embedding": [0.1, 0.2, 0.3]}}
-    mock_client.search.return_value = {"hits": {"hits": [{"_id": "2", "_source": {"id": "2"}}], "total": {"value": 1, "relation": "eq"}}}
+    mock_client.search.return_value = {"hits": {"hits": [{"_id": "2", "_score": 0.5, "_source": {"id": "2"}}], "total": {"value": 1, "relation": "eq"}}}
 
     with patch("epfl_data_index.search.get_client", return_value=mock_client):
         results = knn(id="unit:123")
 
     body = mock_client.search.call_args.kwargs["body"]
     assert set(body["_source"]["excludes"]) == {"text", "embedding"}
-    assert results == [{"id": "2"}]
+    assert results == [{"id": "2", "_score": 0.5}]
 
 
 def test_knn_includes_text_when_requested():
@@ -86,14 +86,14 @@ def test_knn_includes_text_and_embeddings_when_requested():
 
 def test_search_query_building():
     mock_client = MagicMock()
-    mock_client.search.return_value = {"hits": {"hits": [{"_id": "1", "_source": {"id": "1"}}], "total": {"value": 1, "relation": "eq"}}}
+    mock_client.search.return_value = {"hits": {"hits": [{"_id": "1", "_score": 0.9, "_source": {"id": "1"}}], "total": {"value": 1, "relation": "eq"}}}
 
     with patch("epfl_data_index.search.CONFIG", {"EDI_OPENSEARCH_EMBEDDING_MODEL_ID": "test-model"}):
         with patch("epfl_data_index.search.get_client", return_value=mock_client):
             results = search(["machine learning", "healthcare"], type="publication", size=5)
 
     body = mock_client.search.call_args.kwargs["body"]
-    assert results == [{"id": "1"}]
+    assert results == [{"id": "1", "_score": 0.9}]
 
     assert body["size"] == 5
     assert body["query"]["bool"]["filter"] == [{"terms": {"type": ["publication"]}}]

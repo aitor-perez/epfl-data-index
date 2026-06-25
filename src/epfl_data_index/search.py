@@ -166,7 +166,7 @@ def search(
         body["query"]["bool"]["filter"] = [{"terms": {"type": type}}]
 
     response = client.search(index=index_name, body=body)
-    return [hit["_source"] for hit in response["hits"]["hits"]]
+    return [{**hit["_source"], "_score": hit["_score"]} for hit in response["hits"]["hits"]]
 
 
 def knn(
@@ -221,7 +221,7 @@ def knn(
     }
 
     response = client.search(index=index_name, body=body)
-    return [hit["_source"] for hit in response["hits"]["hits"]]
+    return [{**hit["_source"], "_score": hit["_score"]} for hit in response["hits"]["hits"]]
 
 
 if __name__ == "__main__":
