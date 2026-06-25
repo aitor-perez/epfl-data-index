@@ -17,6 +17,10 @@ INDEX_CONFIG_PATH = Path(__file__).resolve().parents[2] / "index-config.json"
 
 
 def create_index(index_name: Optional[str] = None):
+    """Create (or recreate) the index using `index-config.json`.
+
+    WARNING: This deletes the index if it already exists.
+    """
     index_name = index_name or DEFAULT_INDEX_NAME
     client = get_client()
     if client.indices.exists(index=index_name):
@@ -30,6 +34,11 @@ def create_index(index_name: Optional[str] = None):
 
 
 def index_documents(docs: list[Document], index_name: Optional[str] = None):
+    """Index a list of Pydantic Document models in bulk.
+
+    Documents must have `id`, `type`, `name` and `text` set. `created` and
+    `updated` timestamps are always set by this function.
+    """
     index_name = index_name or DEFAULT_INDEX_NAME
 
     now = datetime.now(timezone.utc).isoformat()

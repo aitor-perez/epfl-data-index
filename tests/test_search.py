@@ -82,6 +82,28 @@ def test_knn_includes_text_and_embeddings_when_requested():
     assert body["_source"]["excludes"] == []
 
 
+def test_search_query_building():
+    mock_client = MagicMock()
+    mock_client.search.return_value = {"hits": {"hits": [], "total": {"value": 0, "relation": "eq"}}}
+
+    with patch("epfl_data_index.search.CONFIG", {"EDI_OPENSEARCH_EMBEDDING_MODEL_ID": "test-model"}):
+        with patch("epfl_data_index.search.get_client", return_value=mock_client):
+            search(["machine learning", "healthcare"], type="publication", size=5)
+
+    body = mock_client.search.call_args.kwargs["body"]
+
+    assert body["size"] == 5
+    assert body["query"]["bool"]["filter"] == [{"terms": {"type": ["publication"]}}]
+
+    neural_clauses = body["query"]["bool"]["should"]
+    assert len(neural_clauses) == 2
+    assert neural_clauses[0]["neural"]["embedding"]["query_text"] == "machine learning"
+    assert neural_clauses[1]["neural"]["embedding"]["query_text"] == "healthcare"
+    for clause in neural_clauses:
+        assert clause["neural"]["embedding"]["model_id"] == "test-model"
+        assert clause["neural"]["embedding"]["k"] == 5
+
+
 def test_search_excludes_text_and_embeddings_by_default():
     mock_client = MagicMock()
     mock_client.search.return_value = {"hits": {"hits": [], "total": {"value": 0, "relation": "eq"}}}

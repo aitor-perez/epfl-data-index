@@ -22,6 +22,7 @@ def _source_filter(include_text: bool, include_embeddings: bool) -> dict:
 
 
 def embed(texts: list[str]) -> list[list[float]]:
+    """Compute embedding vectors for a list of texts using the configured model."""
     client = get_client()
     response = client.plugins.ml.predict(
         algorithm_name="text_embedding",
@@ -48,6 +49,12 @@ def fetch_all(
     include_embeddings: bool = False,
     index_name: Optional[str] = None,
 ):
+    """Return all documents, optionally filtered by type.
+
+    By default the heavy `text` and `embedding` fields are excluded from the
+    returned source. Set `include_text` and/or `include_embeddings` to True to
+    retrieve them.
+    """
     client = get_client()
     type = _normalize_doc_type(type)
     index_name = index_name or DEFAULT_INDEX_NAME
@@ -121,6 +128,15 @@ def search(
     include_embeddings: bool = False,
     index_name: Optional[str] = None,
 ):
+    """Run a neural search over the `text` field embeddings.
+
+    `query` can be a single string or a list of strings; multiple strings are
+    combined with a `bool.should` clause. Use `type` to restrict results to one
+    or more document types.
+
+    By default `text` and `embedding` are excluded from returned sources; set
+    `include_text` and/or `include_embeddings` to retrieve them.
+    """
     client = get_client()
     if isinstance(query, str):
         query = [query]
@@ -163,6 +179,14 @@ def knn(
     include_embeddings: bool = False,
     index_name: Optional[str] = None,
 ):
+    """Find the k nearest neighbours of a reference document by embedding.
+
+    The reference document must already have an `embedding` stored in the index.
+    Use `type` to restrict neighbours to specific document types.
+
+    By default `text` and `embedding` are excluded from returned sources; set
+    `include_text` and/or `include_embeddings` to retrieve them.
+    """
     client = get_client()
     type = _normalize_doc_type(type)
     index_name = index_name or DEFAULT_INDEX_NAME
