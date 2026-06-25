@@ -5,7 +5,8 @@ import requests
 
 from epfl_data_index.models import (
     Professor, Publication, Unit,
-    PublicationAuthor, PublicationUnit, ProfessorPublication, ProfessorUnit, UnitProfessor, UnitPublication,
+    NestedPublication,
+    PublicationAuthor, PublicationUnit, ProfessorUnit, UnitProfessor,
 )
 
 API_URL = "http://itsisa0052.xaas.epfl.ch:5001/sql/csv"
@@ -153,13 +154,28 @@ def load_publications(data: dict) -> list[Publication]:
     return records
 
 
+def _load_publication_refs(publications: pd.DataFrame) -> list[NestedPublication]:
+    """Return nested publication models from a publication DataFrame, newest first."""
+    records = []
+    for pub_id, pub_row in publications.sort_values("year_issued", ascending=False).iterrows():
+        title = str(pub_row["title"]) if pd.notna(pub_row["title"]) else None
+        records.append(NestedPublication(
+            id=f"publication:{pub_id}",
+            name=title,
+            publication_id=str(pub_id),
+            title=title,
+            year=int(pub_row["year_issued"]) if pd.notna(pub_row["year_issued"]) else None,
+            doi=pub_row["doi"] if pd.notna(pub_row.get("doi")) else None,
+        ))
+
+    return records
+
+
 def load_professors(data: dict) -> list[Professor]:
     professors = data["professors"]
-    publications = data["publications"]
+    publications = data["publications"].set_index("id_pub")
     sciper_to_pub_ids = data["sciper_to_pub_ids"]
     sciper_to_units = data["sciper_to_units"]
-
-    pub_by_id = publications.set_index("id_pub")
 
     records = []
     for _, prof in professors.iterrows():
@@ -179,28 +195,15 @@ def load_professors(data: dict) -> list[Professor]:
             for r in sciper_to_units.get(sciper, [])
         ]
 
-        valid_pub_ids = [i for i in sciper_to_pub_ids.get(sciper, []) if i in pub_by_id.index]
-        prof_publications = []
-        pub_titles = []
-        if valid_pub_ids:
-            for pub_id, pub_row in pub_by_id.loc[valid_pub_ids].sort_values("year_issued", ascending=False).iterrows():
-                title = str(pub_row["title"]) if pd.notna(pub_row["title"]) else None
-                prof_publications.append(ProfessorPublication(
-                    id=f"publication:{pub_id}",
-                    name=title,
-                    publication_id=str(pub_id),
-                    title=title,
-                    year=int(pub_row["year_issued"]) if pd.notna(pub_row["year_issued"]) else None,
-                    doi=pub_row["doi"] if pd.notna(pub_row.get("doi")) else None,
-                ))
-                if title and len(pub_titles) < 10:
-                    pub_titles.append(title)
+        prof_pub_ids = [i for i in sciper_to_pub_ids.get(sciper, []) if i in publications.index]
+        prof_publications = _load_publication_refs(publications.loc[prof_pub_ids])
 
         name = f"{prof['firstname']} {prof['lastname']}"
         units_str = ", ".join(u.name for u in units if u.name)
         text_parts = [f"Professor {name}"]
         if units_str:
             text_parts.append(f"Units: {units_str}")
+        pub_titles = [p.title for p in prof_publications if p.title]
         if pub_titles:
             text_parts.append("Publications: " + " | ".join(pub_titles))
         text = "\n".join(text_parts)
@@ -225,12 +228,10 @@ def load_professors(data: dict) -> list[Professor]:
 
 def load_units(data: dict) -> list[Unit]:
     units = data["units"]
-    publications = data["publications"]
+    publications = data["publications"].set_index("id_pub")
     prof_unit_merged = data["prof_unit_merged"]
     sciper_to_pub_ids = data["sciper_to_pub_ids"]
     professors = data["professors"].set_index("sciper")
-
-    pub_by_id = publications.set_index("id_pub")
 
     unit_to_profs = (
         prof_unit_merged
@@ -262,25 +263,12 @@ def load_units(data: dict) -> list[Unit]:
             ))
             all_pub_ids.update(sciper_to_pub_ids.get(sciper, []))
 
-        valid_pub_ids = [i for i in all_pub_ids if i in pub_by_id.index]
-        unit_publications = []
-        pub_titles = []
-        if valid_pub_ids:
-            for pub_id, pub_row in pub_by_id.loc[valid_pub_ids].sort_values("year_issued", ascending=False).iterrows():
-                title = str(pub_row["title"]) if pd.notna(pub_row["title"]) else None
-                unit_publications.append(UnitPublication(
-                    id=f"publication:{pub_id}",
-                    name=title,
-                    publication_id=str(pub_id),
-                    title=title,
-                    year=int(pub_row["year_issued"]) if pd.notna(pub_row["year_issued"]) else None,
-                    doi=pub_row["doi"] if pd.notna(pub_row.get("doi")) else None,
-                ))
-                if title and len(pub_titles) < 10:
-                    pub_titles.append(title)
+        unit_pub_ids = [i for i in all_pub_ids if i in publications.index]
+        unit_publications = _load_publication_refs(publications.loc[unit_pub_ids])
 
         unit_name_str = unit["unit_name"] if pd.notna(unit["unit_name"]) else None
         text_parts = [unit_name_str] if unit_name_str else []
+        pub_titles = [p.title for p in unit_publications if p.title]
         if pub_titles:
             text_parts.append("Publications: " + " | ".join(pub_titles))
         unit_text = "\n".join(text_parts) if text_parts else None
