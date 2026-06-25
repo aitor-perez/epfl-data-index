@@ -1,1 +1,1 @@
-from epfl_data_index.search import search, fetch_all
+from epfl_data_index.search import embed, fetch_all, search

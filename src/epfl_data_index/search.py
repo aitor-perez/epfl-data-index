@@ -36,19 +36,23 @@ def fetch_all(doc_type: Optional[Union[str, list[str]]] = None, page_size: int =
     else:
         query = {"match_all": {}}
 
-    total = client.count(index=CONFIG["EDI_OPENSEARCH_INDEX_NAME"], body={"query": query})["count"]
-
-    needs_pagination = total > page_size
+    index_name = CONFIG["EDI_OPENSEARCH_INDEX_NAME"]
+    total = client.count(index=index_name, body={"query": query})["count"]
 
     body = {
         "_source": {"includes": ["id", "type", "name", "text", "embedding"]},
-        "size": page_size if needs_pagination else total,
         "query": query,
         "sort": [{"_id": "asc"}],
     }
 
-    # Point-in-time pagination
-    pit_id = client.create_pit(index=CONFIG["EDI_OPENSEARCH_INDEX_NAME"], keep_alive="5m")["pit_id"]
+    # Small result set: single regular search, no PIT needed
+    if total <= page_size:
+        body["size"] = total
+        return client.search(index=index_name, body=body)
+
+    # Large result set: point-in-time pagination
+    body["size"] = page_size
+    pit_id = client.create_pit(index=index_name, keep_alive="5m")["pit_id"]
     body["pit"] = {"id": pit_id, "keep_alive": "5m"}
     all_hits = []
 
