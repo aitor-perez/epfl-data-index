@@ -11,13 +11,40 @@
 
 ## Build & Run
 
-```bash
-# Install in editable mode
-pip install -e .
+### Users (install from GitLab)
 
-# Required env vars (set in `.env`):
-# EDI_OPENSEARCH_HOST, EDI_OPENSEARCH_PORT, EDI_OPENSEARCH_USER, EDI_OPENSEARCH_PASSWORD
-# EDI_OPENSEARCH_EMBEDDING_MODEL_ID
+The repository is open within EPFL's GitLab. Install the package directly from the Git URL:
+
+```bash
+pip install git+ssh://git@gitlab-ssh.epfl.ch/p-data/epfl-data-index.git
+```
+
+Pin to a tag or branch for reproducibility:
+
+```bash
+pip install git+ssh://git@gitlab-ssh.epfl.ch/p-data/epfl-data-index.git@v0.1.0
+```
+
+### Developers (editable install)
+
+Clone the repository and install in editable mode:
+
+```bash
+git clone git@gitlab-ssh.epfl.ch:p-data/epfl-data-index.git
+cd epfl-data-index
+pip install -e .
+```
+
+### Required environment variables
+
+Set these in a `.env` file or in your shell:
+
+```env
+EDI_OPENSEARCH_HOST=your_host
+EDI_OPENSEARCH_PORT=9200
+EDI_OPENSEARCH_USER=your_user
+EDI_OPENSEARCH_PASSWORD=your_password
+EDI_OPENSEARCH_EMBEDDING_MODEL_ID=your_model_id
 ```
 
 ## Architecture

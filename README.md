@@ -68,24 +68,47 @@ All search and index functions accept an optional `index_name` argument. If omit
 
 **Requirements:** Python ≥ 3.11, a running OpenSearch instance with an NLP ingest pipeline.
 
-1. Install the package:
-   ```bash
-   pip install -e .
-   ```
+### Install from GitLab
 
-2. Install test dependencies (optional):
-   ```bash
-   pip install -e ".[test]"
-   ```
+The repository is open within EPFL's GitLab. Most users can install it directly from the Git URL without cloning:
 
-3. Create a `.env` file in the project root:
-   ```env
-   EDI_OPENSEARCH_HOST=your_host
-   EDI_OPENSEARCH_PORT=9200
-   EDI_OPENSEARCH_USER=your_user
-   EDI_OPENSEARCH_PASSWORD=your_password
-   EDI_OPENSEARCH_EMBEDDING_MODEL_ID=your_model_id
-   ```
+```bash
+pip install git+ssh://git@gitlab-ssh.epfl.ch/p-data/epfl-data-index.git
+```
+
+Pin to a tag or branch for reproducibility:
+
+```bash
+pip install git+ssh://git@gitlab-ssh.epfl.ch/p-data/epfl-data-index.git@v0.1.0
+```
+
+### Editable install for developers
+
+If you plan to modify the code, clone the repository and install in editable mode:
+
+```bash
+git clone git@gitlab-ssh.epfl.ch:p-data/epfl-data-index.git
+cd epfl-data-index
+pip install -e .
+```
+
+### Test dependencies (optional)
+
+```bash
+pip install -e ".[test]"
+```
+
+### Environment variables
+
+Create a `.env` file in the project root:
+
+```env
+EDI_OPENSEARCH_HOST=your_host
+EDI_OPENSEARCH_PORT=9200
+EDI_OPENSEARCH_USER=your_user
+EDI_OPENSEARCH_PASSWORD=your_password
+EDI_OPENSEARCH_EMBEDDING_MODEL_ID=your_model_id
+```
 
 ## Reindex core documents
 
