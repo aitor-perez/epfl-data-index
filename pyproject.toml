@@ -10,12 +10,14 @@ readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Aitor Pérez", email = "aitor.perez@epfl.ch" }]
 dependencies = [
-    "numpy",
     "opensearch-py",
     "pandas",
     "pydantic",
     "requests",
 ]
+
+[project.optional-dependencies]
+test = ["pytest"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/epfl_data_index"]

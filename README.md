@@ -10,41 +10,85 @@ Unstructured documents are ingested and given a minimal structure, then made rea
 
 ## Usage
 
-To simply search documents
-```
+```python
 import epfl_data_index as edi
-
-documents = edi.search(query="Perovskite solar cells")
 ```
 
-To filter by document type
-```
-grants = edi.search(query="Perovskite solar cells", doc_type="grant")
+### Search
+
+```python
+docs = edi.search("machine learning in healthcare")
+grants = edi.search("machine learning", type="grant")
 ```
 
-To perform a knn search
-```
-grants = edi.knn(doc_id="person:123456", doc_type="grant")
+### Fetch all documents of a type
+
+```python
+publications = edi.fetch_all(type="publication")
 ```
 
-To delete and recreate the index
-```
-edi.index()
+### k-NN search
+
+```python
+neighbors = edi.knn(id="unit:123", type="publication", size=20)
 ```
 
-TODO add more examples
+### Index your own documents
+
+```python
+from typing import Literal, Optional
+from epfl_data_index.models import Document
+
+class RCOrganization(Document):
+    type: Literal["rc_organization"] = "rc_organization"
+    zip: Optional[str] = None
+
+orgs = [
+    RCOrganization(
+        id="rc_organization:CHE-123.456.789",
+        name="ABC SA",
+        text="A company based in Lausanne...",
+        zip="1001",
+    ),
+]
+edi.index_documents(orgs)
+```
+
+All search and index functions accept an optional `index_name` argument. If omitted, they default to `"test"`.
 
 ## Setup
 
-**Requirements:** Python ≥ 3.10, a running OpenSearch instance with an NLP ingest pipeline.
+**Requirements:** Python ≥ 3.11, a running OpenSearch instance with an NLP ingest pipeline.
 
-1. Install dependencies:
+1. Install the package:
    ```bash
    pip install -e .
    ```
 
-2. Create a `.env` file in the project root:
-   ```env
-   OPENSEARCH_USER=your_user
-   OPENSEARCH_PASSWORD=your_password
+2. Install test dependencies (optional):
+   ```bash
+   pip install -e ".[test]"
    ```
+
+3. Create a `.env` file in the project root:
+   ```env
+   EDI_OPENSEARCH_HOST=your_host
+   EDI_OPENSEARCH_PORT=9200
+   EDI_OPENSEARCH_USER=your_user
+   EDI_OPENSEARCH_PASSWORD=your_password
+   EDI_OPENSEARCH_EMBEDDING_MODEL_ID=your_model_id
+   ```
+
+## Reindex core documents
+
+To recreate the index and reload publications, professors, and units from the internal EPFL API:
+
+```bash
+python scripts/reindex.py
+```
+
+## Running tests
+
+```bash
+python -m pytest tests/
+```

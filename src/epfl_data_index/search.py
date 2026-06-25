@@ -32,13 +32,13 @@ def embed(texts: list[str]) -> list[list[float]]:
     return results
 
 
-def fetch_all(doc_type: Optional[Union[str, list[str]]] = None, page_size: int = 500, index_name: Optional[str] = None):
+def fetch_all(type: Optional[Union[str, list[str]]] = None, page_size: int = 500, index_name: Optional[str] = None):
     client = get_client()
-    doc_type = _normalize_doc_type(doc_type)
+    type = _normalize_doc_type(type)
     index_name = index_name or DEFAULT_INDEX_NAME
 
-    if doc_type:
-        query = {"terms": {"type": doc_type}}
+    if type:
+        query = {"terms": {"type": type}}
     else:
         query = {"match_all": {}}
 
@@ -98,12 +98,12 @@ def fetch_all(doc_type: Optional[Union[str, list[str]]] = None, page_size: int =
     return response
 
 
-def search(query: Union[str, list[str]], doc_type: Optional[Union[str, list[str]]] = None, size: int = 10, index_name: Optional[str] = None):
+def search(query: Union[str, list[str]], type: Optional[Union[str, list[str]]] = None, size: int = 10, index_name: Optional[str] = None):
     client = get_client()
     if isinstance(query, str):
         query = [query]
 
-    doc_type = _normalize_doc_type(doc_type)
+    type = _normalize_doc_type(type)
     index_name = index_name or DEFAULT_INDEX_NAME
 
     body = {
@@ -127,15 +127,15 @@ def search(query: Union[str, list[str]], doc_type: Optional[Union[str, list[str]
         },
     }
 
-    if doc_type:
-        body["query"]["bool"]["filter"] = [{"terms": {"type": doc_type}}]
+    if type:
+        body["query"]["bool"]["filter"] = [{"terms": {"type": type}}]
 
     return client.search(index=index_name, body=body)
 
 
-def knn(id: str, doc_type: Optional[Union[str, list[str]]] = None, k: int = 10, size: int = 10, index_name: Optional[str] = None):
+def knn(id: str, type: Optional[Union[str, list[str]]] = None, size: int = 10, index_name: Optional[str] = None):
     client = get_client()
-    doc_type = _normalize_doc_type(doc_type)
+    type = _normalize_doc_type(type)
     index_name = index_name or DEFAULT_INDEX_NAME
 
     # Fetch the embedding of the reference document
@@ -144,26 +144,29 @@ def knn(id: str, doc_type: Optional[Union[str, list[str]]] = None, k: int = 10, 
     if not embedding:
         raise ValueError(f"Document {id} has no embedding")
 
+    # Optionally restrict to specific document types
+    filter_clauses = []
+    if type:
+        filter_clauses.append({"terms": {"type": type}})
+
     body = {
         "_source": {"includes": ["id", "type", "name", "text", "embedding"]},
         "size": size,
         "query": {
-            "knn": {
-                "embedding": {
-                    "vector": embedding,
-                    "k": k,
-                }
-            }
-        },
-        "post_filter": {
             "bool": {
-                "must_not": {"term": {"_id": id}}
+                "must": {
+                    "knn": {
+                        "embedding": {
+                            "vector": embedding,
+                            "k": size,
+                        }
+                    }
+                },
+                "must_not": {"term": {"_id": id}},
+                "filter": filter_clauses,
             }
         },
     }
-
-    if doc_type:
-        body["post_filter"]["bool"]["filter"] = [{"terms": {"type": doc_type}}]
 
     return client.search(index=index_name, body=body)
 
@@ -173,5 +176,5 @@ if __name__ == "__main__":
 
     load_dotenv()
 
-    results = fetch_all(doc_type='publication')
+    results = fetch_all(type='publication')
     print(f"Fetched {len(results['hits']['hits'])} publications")
