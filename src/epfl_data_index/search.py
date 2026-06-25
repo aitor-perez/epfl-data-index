@@ -135,10 +135,5 @@ if __name__ == "__main__":
 
     load_dotenv()
 
-    # r = search(text='robotics', doc_type='publication')
-    # for hit in r["hits"]["hits"]:
-    #     print(hit["_source"])
-
-    publications = fetch_all(doc_type='publication')
-
-    print(publications)
+    results = fetch_all(doc_type='publication')
+    print(f"Fetched {len(results['hits']['hits'])} publications")

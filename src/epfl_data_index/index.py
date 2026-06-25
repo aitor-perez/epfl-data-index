@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -9,6 +10,8 @@ from epfl_data_index.client import get_client
 from epfl_data_index.config import CONFIG
 from epfl_data_index.models import Document
 from epfl_data_index.load import load_all
+
+logger = logging.getLogger(__name__)
 
 INDEX_CONFIG_PATH = Path(__file__).resolve().parents[2] / "index-config.json"
 
@@ -24,7 +27,7 @@ def create_index():
         index_body = json.load(f)
 
     client.indices.create(index=INDEX_NAME, body=index_body)
-    print(f"Created index: {INDEX_NAME}")
+    logger.info(f"Created index: {INDEX_NAME}")
 
 
 def index_documents(docs: list[Document]):
@@ -52,7 +55,7 @@ def index_documents(docs: list[Document]):
         if not ok:
             raise Exception(f"Indexing failed: {info}")
 
-    print(f"Indexed {len(docs)} documents.")
+    logger.info(f"Indexed {len(docs)} documents.")
 
 
 if __name__ == "__main__":
