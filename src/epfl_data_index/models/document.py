@@ -7,9 +7,9 @@ from pydantic import BaseModel
 class Document(BaseModel):
     id: str
     type: str
-    name: Optional[str] = None
+    name: str
     url: Optional[str] = None
-    text: Optional[str] = None
+    text: str
     created: Optional[str] = None
     updated: Optional[str] = None
 

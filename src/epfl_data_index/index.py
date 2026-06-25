@@ -32,12 +32,6 @@ def create_index(index_name: Optional[str] = None):
 def index_documents(docs: list[Document], index_name: Optional[str] = None):
     index_name = index_name or DEFAULT_INDEX_NAME
 
-    for doc in docs:
-        if not doc.name:
-            raise ValueError(f"Document {doc.id} is missing required field: name")
-        if not doc.text:
-            raise ValueError(f"Document {doc.id} is missing required field: text")
-
     now = datetime.now(timezone.utc).isoformat()
 
     actions = [
