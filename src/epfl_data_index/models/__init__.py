@@ -11,6 +11,11 @@ from epfl_data_index.models.relations import (
 )
 from epfl_data_index.models.unit import NestedUnit, Unit
 
-Professor.model_rebuild()
-Publication.model_rebuild()
-Unit.model_rebuild()
+def rebuild_models() -> None:
+    """Rebuild all model classes to resolve forward references."""
+    Professor.model_rebuild()
+    Publication.model_rebuild()
+    Unit.model_rebuild()
+
+
+rebuild_models()
