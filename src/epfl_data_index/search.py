@@ -48,8 +48,8 @@ def fetch_all(
     include_text: bool = False,
     include_embeddings: bool = False,
     index_name: Optional[str] = None,
-):
-    """Return all documents, optionally filtered by type.
+) -> list[dict]:
+    """Return all documents as a list of source dicts, optionally filtered by type.
 
     By default the heavy `text` and `embedding` fields are excluded from the
     returned source. Set `include_text` and/or `include_embeddings` to True to
@@ -75,7 +75,8 @@ def fetch_all(
     # Small result set: single regular search, no PIT needed
     if total <= page_size:
         body["size"] = total
-        return client.search(index=index_name, body=body)
+        response = client.search(index=index_name, body=body)
+        return [hit["_source"] for hit in response["hits"]["hits"]]
 
     # Large result set: point-in-time pagination
     body["size"] = page_size
@@ -113,11 +114,7 @@ def fetch_all(
         # Clear pit
         client.delete_pit(body={"pit_id": pit_id})
 
-    # Update response and return
-    response["hits"]["hits"] = all_hits
-    response["hits"]["total"] = {"value": len(all_hits), "relation": "eq"}
-
-    return response
+    return [hit["_source"] for hit in all_hits]
 
 
 def search(
@@ -127,8 +124,8 @@ def search(
     include_text: bool = False,
     include_embeddings: bool = False,
     index_name: Optional[str] = None,
-):
-    """Run a neural search over the `text` field embeddings.
+) -> list[dict]:
+    """Run a neural search and return a list of matching document source dicts.
 
     `query` can be a single string or a list of strings; multiple strings are
     combined with a `bool.should` clause. Use `type` to restrict results to one
@@ -168,7 +165,8 @@ def search(
     if type:
         body["query"]["bool"]["filter"] = [{"terms": {"type": type}}]
 
-    return client.search(index=index_name, body=body)
+    response = client.search(index=index_name, body=body)
+    return [hit["_source"] for hit in response["hits"]["hits"]]
 
 
 def knn(
@@ -178,8 +176,9 @@ def knn(
     include_text: bool = False,
     include_embeddings: bool = False,
     index_name: Optional[str] = None,
-):
-    """Find the k nearest neighbours of a reference document by embedding.
+) -> list[dict]:
+    """Find the k nearest neighbours of a reference document and return them as
+    a list of source dicts.
 
     The reference document must already have an `embedding` stored in the index.
     Use `type` to restrict neighbours to specific document types.
@@ -221,7 +220,8 @@ def knn(
         },
     }
 
-    return client.search(index=index_name, body=body)
+    response = client.search(index=index_name, body=body)
+    return [hit["_source"] for hit in response["hits"]["hits"]]
 
 
 if __name__ == "__main__":
@@ -230,4 +230,4 @@ if __name__ == "__main__":
     load_dotenv()
 
     results = fetch_all(type='publication')
-    print(f"Fetched {len(results['hits']['hits'])} publications")
+    print(f"Fetched {len(results)} publications")
