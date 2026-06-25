@@ -32,7 +32,12 @@ def embed(texts: list[str]) -> list[list[float]]:
     return results
 
 
-def fetch_all(type: Optional[Union[str, list[str]]] = None, page_size: int = 500, index_name: Optional[str] = None):
+def fetch_all(
+    type: Optional[Union[str, list[str]]] = None,
+    page_size: int = 500,
+    include_embeddings: bool = False,
+    index_name: Optional[str] = None,
+):
     client = get_client()
     type = _normalize_doc_type(type)
     index_name = index_name or DEFAULT_INDEX_NAME
@@ -44,8 +49,12 @@ def fetch_all(type: Optional[Union[str, list[str]]] = None, page_size: int = 500
 
     total = client.count(index=index_name, body={"query": query})["count"]
 
+    source_fields = ["id", "type", "name", "text"]
+    if include_embeddings:
+        source_fields.append("embedding")
+
     body = {
-        "_source": {"includes": ["id", "type", "name", "text", "embedding"]},
+        "_source": {"includes": source_fields},
         "query": query,
         "sort": [{"_id": "asc"}],
     }
@@ -98,7 +107,13 @@ def fetch_all(type: Optional[Union[str, list[str]]] = None, page_size: int = 500
     return response
 
 
-def search(query: Union[str, list[str]], type: Optional[Union[str, list[str]]] = None, size: int = 10, index_name: Optional[str] = None):
+def search(
+    query: Union[str, list[str]],
+    type: Optional[Union[str, list[str]]] = None,
+    size: int = 10,
+    include_embeddings: bool = False,
+    index_name: Optional[str] = None,
+):
     client = get_client()
     if isinstance(query, str):
         query = [query]
@@ -106,8 +121,12 @@ def search(query: Union[str, list[str]], type: Optional[Union[str, list[str]]] =
     type = _normalize_doc_type(type)
     index_name = index_name or DEFAULT_INDEX_NAME
 
+    source_fields = ["id", "type", "name", "text"]
+    if include_embeddings:
+        source_fields.append("embedding")
+
     body = {
-        "_source": {"includes": ["id", "type", "name", "text", "embedding"]},
+        "_source": {"includes": source_fields},
         "size": size,
         "query": {
             "bool": {
@@ -133,7 +152,13 @@ def search(query: Union[str, list[str]], type: Optional[Union[str, list[str]]] =
     return client.search(index=index_name, body=body)
 
 
-def knn(id: str, type: Optional[Union[str, list[str]]] = None, size: int = 10, index_name: Optional[str] = None):
+def knn(
+    id: str,
+    type: Optional[Union[str, list[str]]] = None,
+    size: int = 10,
+    include_embeddings: bool = False,
+    index_name: Optional[str] = None,
+):
     client = get_client()
     type = _normalize_doc_type(type)
     index_name = index_name or DEFAULT_INDEX_NAME
@@ -149,8 +174,12 @@ def knn(id: str, type: Optional[Union[str, list[str]]] = None, size: int = 10, i
     if type:
         filter_clauses.append({"terms": {"type": type}})
 
+    source_fields = ["id", "type", "name", "text"]
+    if include_embeddings:
+        source_fields.append("embedding")
+
     body = {
-        "_source": {"includes": ["id", "type", "name", "text", "embedding"]},
+        "_source": {"includes": source_fields},
         "size": size,
         "query": {
             "bool": {

@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from epfl_data_index.search import _normalize_doc_type, knn
+from epfl_data_index.search import _normalize_doc_type, fetch_all, knn, search
 
 
 def test_normalize_doc_type():
@@ -32,6 +32,78 @@ def test_knn_query_building():
 
     assert body["query"]["bool"]["must_not"] == {"term": {"_id": "unit:123"}}
     assert {"terms": {"type": ["publication"]}} in body["query"]["bool"]["filter"]
+
+
+def test_knn_excludes_embeddings_by_default():
+    mock_client = MagicMock()
+    mock_client.get.return_value = {"_source": {"embedding": [0.1, 0.2, 0.3]}}
+    mock_client.search.return_value = {"hits": {"hits": [], "total": {"value": 0, "relation": "eq"}}}
+
+    with patch("epfl_data_index.search.get_client", return_value=mock_client):
+        knn(id="unit:123")
+
+    body = mock_client.search.call_args.kwargs["body"]
+    assert "embedding" not in body["_source"]["includes"]
+
+
+def test_knn_includes_embeddings_when_requested():
+    mock_client = MagicMock()
+    mock_client.get.return_value = {"_source": {"embedding": [0.1, 0.2, 0.3]}}
+    mock_client.search.return_value = {"hits": {"hits": [], "total": {"value": 0, "relation": "eq"}}}
+
+    with patch("epfl_data_index.search.get_client", return_value=mock_client):
+        knn(id="unit:123", include_embeddings=True)
+
+    body = mock_client.search.call_args.kwargs["body"]
+    assert "embedding" in body["_source"]["includes"]
+
+
+def test_search_excludes_embeddings_by_default():
+    mock_client = MagicMock()
+    mock_client.search.return_value = {"hits": {"hits": [], "total": {"value": 0, "relation": "eq"}}}
+
+    with patch("epfl_data_index.search.CONFIG", {"EDI_OPENSEARCH_EMBEDDING_MODEL_ID": "test-model"}):
+        with patch("epfl_data_index.search.get_client", return_value=mock_client):
+            search("machine learning")
+
+    body = mock_client.search.call_args.kwargs["body"]
+    assert "embedding" not in body["_source"]["includes"]
+
+
+def test_search_includes_embeddings_when_requested():
+    mock_client = MagicMock()
+    mock_client.search.return_value = {"hits": {"hits": [], "total": {"value": 0, "relation": "eq"}}}
+
+    with patch("epfl_data_index.search.CONFIG", {"EDI_OPENSEARCH_EMBEDDING_MODEL_ID": "test-model"}):
+        with patch("epfl_data_index.search.get_client", return_value=mock_client):
+            search("machine learning", include_embeddings=True)
+
+    body = mock_client.search.call_args.kwargs["body"]
+    assert "embedding" in body["_source"]["includes"]
+
+
+def test_fetch_all_excludes_embeddings_by_default():
+    mock_client = MagicMock()
+    mock_client.count.return_value = {"count": 1}
+    mock_client.search.return_value = {"hits": {"hits": [{"_id": "1"}], "total": {"value": 1, "relation": "eq"}}}
+
+    with patch("epfl_data_index.search.get_client", return_value=mock_client):
+        fetch_all()
+
+    body = mock_client.search.call_args.kwargs["body"]
+    assert "embedding" not in body["_source"]["includes"]
+
+
+def test_fetch_all_includes_embeddings_when_requested():
+    mock_client = MagicMock()
+    mock_client.count.return_value = {"count": 1}
+    mock_client.search.return_value = {"hits": {"hits": [{"_id": "1"}], "total": {"value": 1, "relation": "eq"}}}
+
+    with patch("epfl_data_index.search.get_client", return_value=mock_client):
+        fetch_all(include_embeddings=True)
+
+    body = mock_client.search.call_args.kwargs["body"]
+    assert "embedding" in body["_source"]["includes"]
 
 
 def test_knn_missing_embedding_raises():
