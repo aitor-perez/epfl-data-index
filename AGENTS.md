@@ -26,8 +26,8 @@ pip install -e .
 - **config.py** — A thin `_Config` class that reads all settings from environment variables via `os.environ.get(key)`.
 - **models/** — Pydantic models: `Document` base class, `Publication`, `Professor`, `Unit`, plus nested variants for many-to-many relations. `Document` requires `id`, `type`, `name` and `text`.
 - **search.py** — Public API surface (`search`, `fetch_all`, `knn`, `embed`). `search` performs neural (embedding) search over the `text` field and returns a list of source dicts (including `_score`). `fetch_all` uses point-in-time (PIT) pagination and returns a list of source dicts. `knn` finds nearest neighbors by document ID and returns a list of source dicts (including `_score`). `search`, `fetch_all` and `knn` accept `include_text` and `include_embeddings` flags (both default to `False`) to avoid returning heavy fields.
-- **index.py** — Index management (`create_index`, `index_documents`). Documents are indexed once with the `text` field defined by `load.py`; the cluster's default ingest pipeline computes the embedding from that text.
-- **load.py** — Fetches CSVs from an internal SQL API, normalizes data, returns lists of Pydantic models.
+- **index.py** — Index management (`create_index`, `index_documents`). Documents are indexed once with the `text` field defined by `scripts/load.py`; the cluster's default ingest pipeline computes the embedding from that text.
+- **scripts/load.py** — Fetches CSVs from an internal SQL API, normalizes data, returns lists of Pydantic models.
 
 ## OpenSearch Details
 
@@ -45,7 +45,7 @@ pip install -e .
 
 ## Common Tasks
 
-- **Add a new doc type**: Add a Pydantic model in `models/` inheriting from `Document`, then update `load.py` to hydrate instances, and index them with `index_documents`.
+- **Add a new doc type**: Add a Pydantic model in `models/` inheriting from `Document`, then update `scripts/load.py` to hydrate instances, and index them with `index_documents`.
 - **Change embedding behavior**: Edit `index-config.json` (dimension, space_type) and the `embed()` call in `search.py`.
 - **Add search variants**: Put new query DSL builders in `search.py` and expose in `__init__.py` if public.
 
@@ -54,4 +54,4 @@ pip install -e .
 - All search and index functions accept an optional `index_name` parameter; they default to `"test"` if omitted.
 - Run tests with `python -m pytest tests/`.
 - Reindex core documents with `python scripts/reindex.py`.
-- `load.py` hits an internal EPFL endpoint (`itsisa0052.xaas.epfl.ch:5001`)—scripts will fail outside the EPFL network.
+- `scripts/load.py` hits an internal EPFL endpoint (`itsisa0052.xaas.epfl.ch:5001`)—scripts will fail outside the EPFL network.

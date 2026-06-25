@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from epfl_data_index.index import create_index, index_documents
-from epfl_data_index.load import load_all
+from load import load_all
 
 
 def main():
