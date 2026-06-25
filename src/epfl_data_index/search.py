@@ -12,6 +12,15 @@ def _normalize_doc_type(doc_type: Optional[Union[str, list[str]]]) -> list[str]:
     return doc_type
 
 
+def _source_filter(include_text: bool, include_embeddings: bool) -> dict:
+    excludes = []
+    if not include_text:
+        excludes.append("text")
+    if not include_embeddings:
+        excludes.append("embedding")
+    return {"excludes": excludes}
+
+
 def embed(texts: list[str]) -> list[list[float]]:
     client = get_client()
     response = client.plugins.ml.predict(
@@ -35,6 +44,7 @@ def embed(texts: list[str]) -> list[list[float]]:
 def fetch_all(
     type: Optional[Union[str, list[str]]] = None,
     page_size: int = 500,
+    include_text: bool = False,
     include_embeddings: bool = False,
     index_name: Optional[str] = None,
 ):
@@ -49,12 +59,8 @@ def fetch_all(
 
     total = client.count(index=index_name, body={"query": query})["count"]
 
-    source_fields = ["id", "type", "name", "text"]
-    if include_embeddings:
-        source_fields.append("embedding")
-
     body = {
-        "_source": {"includes": source_fields},
+        "_source": _source_filter(include_text, include_embeddings),
         "query": query,
         "sort": [{"_id": "asc"}],
     }
@@ -111,6 +117,7 @@ def search(
     query: Union[str, list[str]],
     type: Optional[Union[str, list[str]]] = None,
     size: int = 10,
+    include_text: bool = False,
     include_embeddings: bool = False,
     index_name: Optional[str] = None,
 ):
@@ -121,12 +128,8 @@ def search(
     type = _normalize_doc_type(type)
     index_name = index_name or DEFAULT_INDEX_NAME
 
-    source_fields = ["id", "type", "name", "text"]
-    if include_embeddings:
-        source_fields.append("embedding")
-
     body = {
-        "_source": {"includes": source_fields},
+        "_source": _source_filter(include_text, include_embeddings),
         "size": size,
         "query": {
             "bool": {
@@ -156,6 +159,7 @@ def knn(
     id: str,
     type: Optional[Union[str, list[str]]] = None,
     size: int = 10,
+    include_text: bool = False,
     include_embeddings: bool = False,
     index_name: Optional[str] = None,
 ):
@@ -174,12 +178,8 @@ def knn(
     if type:
         filter_clauses.append({"terms": {"type": type}})
 
-    source_fields = ["id", "type", "name", "text"]
-    if include_embeddings:
-        source_fields.append("embedding")
-
     body = {
-        "_source": {"includes": source_fields},
+        "_source": _source_filter(include_text, include_embeddings),
         "size": size,
         "query": {
             "bool": {

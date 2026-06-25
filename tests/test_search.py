@@ -34,7 +34,7 @@ def test_knn_query_building():
     assert {"terms": {"type": ["publication"]}} in body["query"]["bool"]["filter"]
 
 
-def test_knn_excludes_embeddings_by_default():
+def test_knn_excludes_text_and_embeddings_by_default():
     mock_client = MagicMock()
     mock_client.get.return_value = {"_source": {"embedding": [0.1, 0.2, 0.3]}}
     mock_client.search.return_value = {"hits": {"hits": [], "total": {"value": 0, "relation": "eq"}}}
@@ -43,7 +43,19 @@ def test_knn_excludes_embeddings_by_default():
         knn(id="unit:123")
 
     body = mock_client.search.call_args.kwargs["body"]
-    assert "embedding" not in body["_source"]["includes"]
+    assert set(body["_source"]["excludes"]) == {"text", "embedding"}
+
+
+def test_knn_includes_text_when_requested():
+    mock_client = MagicMock()
+    mock_client.get.return_value = {"_source": {"embedding": [0.1, 0.2, 0.3]}}
+    mock_client.search.return_value = {"hits": {"hits": [], "total": {"value": 0, "relation": "eq"}}}
+
+    with patch("epfl_data_index.search.get_client", return_value=mock_client):
+        knn(id="unit:123", include_text=True)
+
+    body = mock_client.search.call_args.kwargs["body"]
+    assert body["_source"]["excludes"] == ["embedding"]
 
 
 def test_knn_includes_embeddings_when_requested():
@@ -55,10 +67,22 @@ def test_knn_includes_embeddings_when_requested():
         knn(id="unit:123", include_embeddings=True)
 
     body = mock_client.search.call_args.kwargs["body"]
-    assert "embedding" in body["_source"]["includes"]
+    assert body["_source"]["excludes"] == ["text"]
 
 
-def test_search_excludes_embeddings_by_default():
+def test_knn_includes_text_and_embeddings_when_requested():
+    mock_client = MagicMock()
+    mock_client.get.return_value = {"_source": {"embedding": [0.1, 0.2, 0.3]}}
+    mock_client.search.return_value = {"hits": {"hits": [], "total": {"value": 0, "relation": "eq"}}}
+
+    with patch("epfl_data_index.search.get_client", return_value=mock_client):
+        knn(id="unit:123", include_text=True, include_embeddings=True)
+
+    body = mock_client.search.call_args.kwargs["body"]
+    assert body["_source"]["excludes"] == []
+
+
+def test_search_excludes_text_and_embeddings_by_default():
     mock_client = MagicMock()
     mock_client.search.return_value = {"hits": {"hits": [], "total": {"value": 0, "relation": "eq"}}}
 
@@ -67,7 +91,19 @@ def test_search_excludes_embeddings_by_default():
             search("machine learning")
 
     body = mock_client.search.call_args.kwargs["body"]
-    assert "embedding" not in body["_source"]["includes"]
+    assert set(body["_source"]["excludes"]) == {"text", "embedding"}
+
+
+def test_search_includes_text_when_requested():
+    mock_client = MagicMock()
+    mock_client.search.return_value = {"hits": {"hits": [], "total": {"value": 0, "relation": "eq"}}}
+
+    with patch("epfl_data_index.search.CONFIG", {"EDI_OPENSEARCH_EMBEDDING_MODEL_ID": "test-model"}):
+        with patch("epfl_data_index.search.get_client", return_value=mock_client):
+            search("machine learning", include_text=True)
+
+    body = mock_client.search.call_args.kwargs["body"]
+    assert body["_source"]["excludes"] == ["embedding"]
 
 
 def test_search_includes_embeddings_when_requested():
@@ -79,10 +115,10 @@ def test_search_includes_embeddings_when_requested():
             search("machine learning", include_embeddings=True)
 
     body = mock_client.search.call_args.kwargs["body"]
-    assert "embedding" in body["_source"]["includes"]
+    assert body["_source"]["excludes"] == ["text"]
 
 
-def test_fetch_all_excludes_embeddings_by_default():
+def test_fetch_all_excludes_text_and_embeddings_by_default():
     mock_client = MagicMock()
     mock_client.count.return_value = {"count": 1}
     mock_client.search.return_value = {"hits": {"hits": [{"_id": "1"}], "total": {"value": 1, "relation": "eq"}}}
@@ -91,19 +127,19 @@ def test_fetch_all_excludes_embeddings_by_default():
         fetch_all()
 
     body = mock_client.search.call_args.kwargs["body"]
-    assert "embedding" not in body["_source"]["includes"]
+    assert set(body["_source"]["excludes"]) == {"text", "embedding"}
 
 
-def test_fetch_all_includes_embeddings_when_requested():
+def test_fetch_all_includes_text_and_embeddings_when_requested():
     mock_client = MagicMock()
     mock_client.count.return_value = {"count": 1}
     mock_client.search.return_value = {"hits": {"hits": [{"_id": "1"}], "total": {"value": 1, "relation": "eq"}}}
 
     with patch("epfl_data_index.search.get_client", return_value=mock_client):
-        fetch_all(include_embeddings=True)
+        fetch_all(include_text=True, include_embeddings=True)
 
     body = mock_client.search.call_args.kwargs["body"]
-    assert "embedding" in body["_source"]["includes"]
+    assert body["_source"]["excludes"] == []
 
 
 def test_knn_missing_embedding_raises():
