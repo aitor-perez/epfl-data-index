@@ -181,33 +181,28 @@ def load_professors(data: dict) -> list[Professor]:
 
         valid_pub_ids = [i for i in sciper_to_pub_ids.get(sciper, []) if i in pub_by_id.index]
         prof_publications = []
-        pub_texts = []
+        pub_titles = []
         if valid_pub_ids:
             for pub_id, pub_row in pub_by_id.loc[valid_pub_ids].sort_values("year_issued", ascending=False).iterrows():
+                title = str(pub_row["title"]) if pd.notna(pub_row["title"]) else None
                 prof_publications.append(ProfessorPublication(
                     id=f"publication:{pub_id}",
-                    name=str(pub_row["title"]) if pd.notna(pub_row["title"]) else None,
+                    name=title,
                     publication_id=str(pub_id),
-                    title=str(pub_row["title"]) if pd.notna(pub_row["title"]) else None,
+                    title=title,
                     year=int(pub_row["year_issued"]) if pd.notna(pub_row["year_issued"]) else None,
                     doi=pub_row["doi"] if pd.notna(pub_row.get("doi")) else None,
                 ))
-                if len(pub_texts) < 10:
-                    p = []
-                    if pd.notna(pub_row["title"]):
-                        p.append(str(pub_row["title"]))
-                    if pd.notna(pub_row.get("abstract")) and str(pub_row.get("abstract", "")).strip():
-                        p.append(str(pub_row["abstract"]))
-                    if p:
-                        pub_texts.append(". ".join(p))
+                if title and len(pub_titles) < 10:
+                    pub_titles.append(title)
 
         name = f"{prof['firstname']} {prof['lastname']}"
         units_str = ", ".join(u.name for u in units if u.name)
         text_parts = [f"Professor {name}"]
         if units_str:
             text_parts.append(f"Units: {units_str}")
-        if pub_texts:
-            text_parts.append("Publications: " + " | ".join(pub_texts))
+        if pub_titles:
+            text_parts.append("Publications: " + " | ".join(pub_titles))
         text = "\n".join(text_parts)
 
         records.append(Professor(
@@ -269,30 +264,25 @@ def load_units(data: dict) -> list[Unit]:
 
         valid_pub_ids = [i for i in all_pub_ids if i in pub_by_id.index]
         unit_publications = []
-        pub_texts = []
+        pub_titles = []
         if valid_pub_ids:
             for pub_id, pub_row in pub_by_id.loc[valid_pub_ids].sort_values("year_issued", ascending=False).iterrows():
+                title = str(pub_row["title"]) if pd.notna(pub_row["title"]) else None
                 unit_publications.append(UnitPublication(
                     id=f"publication:{pub_id}",
-                    name=str(pub_row["title"]) if pd.notna(pub_row["title"]) else None,
+                    name=title,
                     publication_id=str(pub_id),
-                    title=str(pub_row["title"]) if pd.notna(pub_row["title"]) else None,
+                    title=title,
                     year=int(pub_row["year_issued"]) if pd.notna(pub_row["year_issued"]) else None,
                     doi=pub_row["doi"] if pd.notna(pub_row.get("doi")) else None,
                 ))
-                if len(pub_texts) < 10:
-                    p = []
-                    if pd.notna(pub_row["title"]):
-                        p.append(str(pub_row["title"]))
-                    if pd.notna(pub_row.get("abstract")) and str(pub_row.get("abstract", "")).strip():
-                        p.append(str(pub_row["abstract"]))
-                    if p:
-                        pub_texts.append(". ".join(p))
+                if title and len(pub_titles) < 10:
+                    pub_titles.append(title)
 
         unit_name_str = unit["unit_name"] if pd.notna(unit["unit_name"]) else None
         text_parts = [unit_name_str] if unit_name_str else []
-        if pub_texts:
-            text_parts.append("Publications: " + " | ".join(pub_texts))
+        if pub_titles:
+            text_parts.append("Publications: " + " | ".join(pub_titles))
         unit_text = "\n".join(text_parts) if text_parts else None
 
         records.append(Unit(

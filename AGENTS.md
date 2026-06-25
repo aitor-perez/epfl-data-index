@@ -26,7 +26,7 @@ pip install -e .
 - **config.py** — A thin `_Config` class that reads all settings from environment variables via `os.environ.get(key)`.
 - **models.py** — Pydantic models: `Document` base class, `Publication`, `Professor`, `Unit`, plus nested variants for many-to-many relations.
 - **search.py** — Public API surface (`search`, `fetch_all`). `search` performs neural (embedding) search over `text` field. `fetch_all` uses point-in-time (PIT) pagination.
-- **index.py** — Index management (`create_index`, `index_documents`) and embedding updates (averaging publication vectors for professors/units).
+- **index.py** — Index management (`create_index`, `index_documents`). Documents are indexed once with the `text` field defined by `load.py`; the cluster's default ingest pipeline computes the embedding from that text.
 - **load.py** — Fetches CSVs from an internal SQL API, normalizes data, returns lists of Pydantic models.
 
 ## OpenSearch Details

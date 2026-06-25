@@ -3,13 +3,11 @@ from pathlib import Path
 
 import json
 
-import numpy as np
-
 from opensearchpy import helpers
 
 from epfl_data_index.client import get_client
 from epfl_data_index.config import CONFIG
-from epfl_data_index.models import Document, Professor, Unit
+from epfl_data_index.models import Document
 from epfl_data_index.load import load_all
 
 INDEX_CONFIG_PATH = Path(__file__).resolve().parents[2] / "index-config.json"
@@ -57,45 +55,6 @@ def index_documents(docs: list[Document]):
     print(f"Indexed {len(docs)} documents.")
 
 
-def _average_embeddings(doc_ids: list[str]) -> list[float] | None:
-    client = get_client()
-    if not doc_ids:
-        return None
-
-    response = client.mget(index=INDEX_NAME, body={"ids": doc_ids}, _source_includes=["embedding"])
-    vectors = [
-        hit["_source"]["embedding"]
-        for hit in response["docs"]
-        if hit.get("found") and "embedding" in hit.get("_source", {})
-    ]
-
-    if not vectors:
-        return None
-
-    avg = np.mean(vectors, axis=0)
-    norm = np.linalg.norm(avg)
-    if norm == 0:
-        return None
-    return (avg / norm).tolist()
-
-
-def update_embeddings(professors: list[Professor], units: list[Unit]):
-    client = get_client()
-    for prof in professors:
-        vector = _average_embeddings([p.id for p in prof.publications])
-        if vector:
-            client.update(index=INDEX_NAME, id=prof.id, body={"doc": {"embedding": vector}})
-
-    print(f"Updated embeddings for {len(professors)} professors.")
-
-    for unit in units:
-        vector = _average_embeddings([p.id for p in unit.publications])
-        if vector:
-            client.update(index=INDEX_NAME, id=unit.id, body={"doc": {"embedding": vector}})
-
-    print(f"Updated embeddings for {len(units)} units.")
-
-
 if __name__ == "__main__":
     from dotenv import load_dotenv
 
@@ -105,7 +64,3 @@ if __name__ == "__main__":
 
     create_index()
     index_documents(publications + professors + units)
-    # update_embeddings(professors, units)
-
-    # index_documents(professors + units)
-    # update_embeddings(professors, units)
