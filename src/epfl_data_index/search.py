@@ -1,7 +1,15 @@
 from typing import Optional, Union
 
 from epfl_data_index.client import get_client
-from epfl_data_index.config import CONFIG
+from epfl_data_index.config import CONFIG, DEFAULT_INDEX_NAME
+
+
+def _normalize_doc_type(doc_type: Optional[Union[str, list[str]]]) -> list[str]:
+    if not doc_type:
+        return []
+    if isinstance(doc_type, str):
+        return [doc_type]
+    return doc_type
 
 
 def embed(texts: list[str]) -> list[list[float]]:
@@ -24,19 +32,16 @@ def embed(texts: list[str]) -> list[list[float]]:
     return results
 
 
-def fetch_all(doc_type: Optional[Union[str, list[str]]] = None, page_size: int = 500):
+def fetch_all(doc_type: Optional[Union[str, list[str]]] = None, page_size: int = 500, index_name: Optional[str] = None):
     client = get_client()
-    if not doc_type:
-        doc_type = []
-    elif isinstance(doc_type, str):
-        doc_type = [doc_type]
+    doc_type = _normalize_doc_type(doc_type)
+    index_name = index_name or DEFAULT_INDEX_NAME
 
     if doc_type:
         query = {"terms": {"type": doc_type}}
     else:
         query = {"match_all": {}}
 
-    index_name = CONFIG["EDI_OPENSEARCH_INDEX_NAME"]
     total = client.count(index=index_name, body={"query": query})["count"]
 
     body = {
@@ -93,15 +98,13 @@ def fetch_all(doc_type: Optional[Union[str, list[str]]] = None, page_size: int =
     return response
 
 
-def search(query: Union[str, list[str]], doc_type: Optional[Union[str, list[str]]] = None, size: int = 10):
+def search(query: Union[str, list[str]], doc_type: Optional[Union[str, list[str]]] = None, size: int = 10, index_name: Optional[str] = None):
     client = get_client()
     if isinstance(query, str):
         query = [query]
 
-    if not doc_type:
-        doc_type = []
-    elif isinstance(doc_type, str):
-        doc_type = [doc_type]
+    doc_type = _normalize_doc_type(doc_type)
+    index_name = index_name or DEFAULT_INDEX_NAME
 
     body = {
         "_source": {"includes": ["id", "type", "name", "text", "embedding"]},
@@ -127,7 +130,42 @@ def search(query: Union[str, list[str]], doc_type: Optional[Union[str, list[str]
     if doc_type:
         body["query"]["bool"]["filter"] = [{"terms": {"type": doc_type}}]
 
-    return client.search(index=CONFIG["EDI_OPENSEARCH_INDEX_NAME"], body=body)
+    return client.search(index=index_name, body=body)
+
+
+def knn(id: str, doc_type: Optional[Union[str, list[str]]] = None, k: int = 10, size: int = 10, index_name: Optional[str] = None):
+    client = get_client()
+    doc_type = _normalize_doc_type(doc_type)
+    index_name = index_name or DEFAULT_INDEX_NAME
+
+    # Fetch the embedding of the reference document
+    source = client.get(index=index_name, id=id, _source_includes=["embedding"])
+    embedding = source["_source"].get("embedding")
+    if not embedding:
+        raise ValueError(f"Document {id} has no embedding")
+
+    body = {
+        "_source": {"includes": ["id", "type", "name", "text", "embedding"]},
+        "size": size,
+        "query": {
+            "knn": {
+                "embedding": {
+                    "vector": embedding,
+                    "k": k,
+                }
+            }
+        },
+        "post_filter": {
+            "bool": {
+                "must_not": {"term": {"_id": id}}
+            }
+        },
+    }
+
+    if doc_type:
+        body["post_filter"]["bool"]["filter"] = [{"terms": {"type": doc_type}}]
+
+    return client.search(index=index_name, body=body)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,9 @@
 import os
 
 
+DEFAULT_INDEX_NAME = "test"
+
+
 class _Config:
     def __getitem__(self, key):
         try:

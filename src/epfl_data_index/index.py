@@ -1,41 +1,48 @@
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
 import json
 
 from opensearchpy import helpers
 
 from epfl_data_index.client import get_client
-from epfl_data_index.config import CONFIG
+from epfl_data_index.config import DEFAULT_INDEX_NAME
 from epfl_data_index.models import Document
-from epfl_data_index.load import load_all
 
 logger = logging.getLogger(__name__)
 
 INDEX_CONFIG_PATH = Path(__file__).resolve().parents[2] / "index-config.json"
 
-INDEX_NAME = CONFIG["EDI_OPENSEARCH_INDEX_NAME"]
 
-
-def create_index():
+def create_index(index_name: Optional[str] = None):
+    index_name = index_name or DEFAULT_INDEX_NAME
     client = get_client()
-    if client.indices.exists(index=INDEX_NAME):
-        client.indices.delete(index=INDEX_NAME)
+    if client.indices.exists(index=index_name):
+        client.indices.delete(index=index_name)
 
     with open(INDEX_CONFIG_PATH, "r", encoding="utf-8") as f:
         index_body = json.load(f)
 
-    client.indices.create(index=INDEX_NAME, body=index_body)
-    logger.info(f"Created index: {INDEX_NAME}")
+    client.indices.create(index=index_name, body=index_body)
+    logger.info(f"Created index: {index_name}")
 
 
-def index_documents(docs: list[Document]):
+def index_documents(docs: list[Document], index_name: Optional[str] = None):
+    index_name = index_name or DEFAULT_INDEX_NAME
+
+    for doc in docs:
+        if not doc.name:
+            raise ValueError(f"Document {doc.id} is missing required field: name")
+        if not doc.text:
+            raise ValueError(f"Document {doc.id} is missing required field: text")
+
     now = datetime.now(timezone.utc).isoformat()
 
     actions = [
         {
-            "_index": INDEX_NAME,
+            "_index": index_name,
             "_id": doc.id,
             "_source": doc.model_dump(exclude={"created", "updated"}) | {"created": now, "updated": now},
         }
@@ -56,14 +63,3 @@ def index_documents(docs: list[Document]):
             raise Exception(f"Indexing failed: {info}")
 
     logger.info(f"Indexed {len(docs)} documents.")
-
-
-if __name__ == "__main__":
-    from dotenv import load_dotenv
-
-    load_dotenv()
-
-    publications, professors, units = load_all()
-
-    create_index()
-    index_documents(publications + professors + units)
