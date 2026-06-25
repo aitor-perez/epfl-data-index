@@ -33,6 +33,14 @@ publications = edi.fetch_all(type="publication")
 neighbors = edi.knn(id="unit:123", type="publication", size=20)
 ```
 
+### Retrieve heavy fields
+
+By default `search`, `fetch_all` and `knn` exclude the `text` and `embedding` fields from results. Pass `include_text=True` and/or `include_embeddings=True` to retrieve them:
+
+```python
+docs = edi.fetch_all(type="publication", include_text=True, include_embeddings=True)
+```
+
 ### Index your own documents
 
 ```python
