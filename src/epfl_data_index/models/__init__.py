@@ -10,12 +10,21 @@ from epfl_data_index.models.relations import (
     UnitPublication,
 )
 from epfl_data_index.models.unit import NestedUnit, Unit
+from epfl_data_index.models.grant import Grant, NestedGrant
 
 def rebuild_models() -> None:
     """Rebuild all model classes to resolve forward references."""
-    Professor.model_rebuild()
-    Publication.model_rebuild()
-    Unit.model_rebuild()
+    namespace = {
+        "NestedProfessor": NestedProfessor,
+        "NestedPublication": NestedPublication,
+        "NestedUnit": NestedUnit,
+        "ProfessorUnit": ProfessorUnit,
+        "UnitProfessor": UnitProfessor,
+    }
+    Publication.model_rebuild(_types_namespace=namespace)
+    Unit.model_rebuild(_types_namespace=namespace)
+    Professor.model_rebuild(_types_namespace=namespace)
+    Grant.model_rebuild(_types_namespace=namespace)
 
 
 rebuild_models()
