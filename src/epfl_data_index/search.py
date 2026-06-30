@@ -1,7 +1,7 @@
 from typing import Optional, Union
 
 from epfl_data_index.client import get_client
-from epfl_data_index.config import CONFIG, DEFAULT_INDEX_NAME
+from epfl_data_index.config import CONFIG
 
 
 def _normalize_doc_type(doc_type: Optional[Union[str, list[str]]]) -> list[str]:
@@ -57,7 +57,7 @@ def fetch_all(
     """
     client = get_client()
     type = _normalize_doc_type(type)
-    index_name = index_name or DEFAULT_INDEX_NAME
+    index_name = index_name or CONFIG["EDI_OPENSEARCH_INDEX_NAME"]
 
     if type:
         query = {"terms": {"type": type}}
@@ -139,7 +139,7 @@ def search(
         query = [query]
 
     type = _normalize_doc_type(type)
-    index_name = index_name or DEFAULT_INDEX_NAME
+    index_name = index_name or CONFIG["EDI_OPENSEARCH_INDEX_NAME"]
 
     body = {
         "_source": _source_filter(include_text, include_embeddings),
@@ -188,7 +188,7 @@ def knn(
     """
     client = get_client()
     type = _normalize_doc_type(type)
-    index_name = index_name or DEFAULT_INDEX_NAME
+    index_name = index_name or CONFIG["EDI_OPENSEARCH_INDEX_NAME"]
 
     # Fetch the embedding of the reference document
     source = client.get(index=index_name, id=id, _source_includes=["embedding"])

@@ -107,8 +107,14 @@ EDI_OPENSEARCH_HOST=your_host
 EDI_OPENSEARCH_PORT=9200
 EDI_OPENSEARCH_USER=your_user
 EDI_OPENSEARCH_PASSWORD=your_password
-EDI_OPENSEARCH_EMBEDDING_MODEL_ID=your_model_id
 ```
+
+Optional variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `EDI_OPENSEARCH_EMBEDDING_MODEL_ID` | `1qybAp4BjzNfTND26ePS` | OpenSearch text-embedding model ID. |
+| `EDI_OPENSEARCH_INDEX_NAME` | `test` | Default index name used when `index_name` is not passed explicitly. |
 
 ## Reindex core documents
 

@@ -44,13 +44,19 @@ EDI_OPENSEARCH_HOST=your_host
 EDI_OPENSEARCH_PORT=9200
 EDI_OPENSEARCH_USER=your_user
 EDI_OPENSEARCH_PASSWORD=your_password
-EDI_OPENSEARCH_EMBEDDING_MODEL_ID=your_model_id
 ```
+
+### Optional environment variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `EDI_OPENSEARCH_EMBEDDING_MODEL_ID` | `1qybAp4BjzNfTND26ePS` | OpenSearch text-embedding model ID. |
+| `EDI_OPENSEARCH_INDEX_NAME` | `test` | Default index name used when `index_name` is not passed explicitly. |
 
 ## Architecture
 
 - **client.py** — `get_client()` returns a configured `opensearchpy.OpenSearch` instance (SSL, no cert verify).
-- **config.py** — A thin `_Config` class that reads all settings from environment variables via `os.environ.get(key)`.
+- **config.py** — A thin `_Config` class that reads required settings from environment variables. Optional variables are listed in `OPTIONAL_ENV_DEFAULTS` and fall back to their default values when not set.
 - **models/** — Pydantic models: `Document` base class, `Publication`, `Professor`, `Unit`, plus nested variants for many-to-many relations. `Document` requires `id`, `type`, `name` and `text`.
 - **search.py** — Public API surface (`search`, `fetch_all`, `knn`, `embed`). `search` performs neural (embedding) search over the `text` field and returns a list of source dicts (including `_score`). `fetch_all` uses point-in-time (PIT) pagination and returns a list of source dicts. `knn` finds nearest neighbors by document ID and returns a list of source dicts (including `_score`). `search`, `fetch_all` and `knn` accept `include_text` and `include_embeddings` flags (both default to `False`) to avoid returning heavy fields.
 - **index.py** — Index management (`create_index`, `index_documents`). Documents are indexed once with the `text` field defined by `scripts/load.py`; the cluster's default ingest pipeline computes the embedding from that text.
@@ -78,7 +84,7 @@ EDI_OPENSEARCH_EMBEDDING_MODEL_ID=your_model_id
 
 ## Notes
 
-- All search and index functions accept an optional `index_name` parameter; they default to `"test"` if omitted.
+- All search and index functions accept an optional `index_name` parameter; they default to the value of `EDI_OPENSEARCH_INDEX_NAME` (or `"test"` if it is not set).
 - Run tests with `python -m pytest tests/`.
 - Reindex core documents with `python scripts/reindex.py`.
 - `scripts/load.py` hits an internal EPFL endpoint (`itsisa0052.xaas.epfl.ch:5001`)—scripts will fail outside the EPFL network.

@@ -8,7 +8,7 @@ import json
 from opensearchpy import helpers
 
 from epfl_data_index.client import get_client
-from epfl_data_index.config import DEFAULT_INDEX_NAME
+from epfl_data_index.config import CONFIG
 from epfl_data_index.models import Document
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ def create_index(index_name: Optional[str] = None):
 
     WARNING: This deletes the index if it already exists.
     """
-    index_name = index_name or DEFAULT_INDEX_NAME
+    index_name = index_name or CONFIG["EDI_OPENSEARCH_INDEX_NAME"]
     client = get_client()
     if client.indices.exists(index=index_name):
         client.indices.delete(index=index_name)
@@ -39,7 +39,7 @@ def index_documents(docs: list[Document], index_name: Optional[str] = None) -> N
     Documents must have `id`, `type`, `name` and `text` set. `created` and
     `updated` timestamps are always set by this function.
     """
-    index_name = index_name or DEFAULT_INDEX_NAME
+    index_name = index_name or CONFIG["EDI_OPENSEARCH_INDEX_NAME"]
 
     now = datetime.now(timezone.utc).isoformat()
 
