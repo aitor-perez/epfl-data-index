@@ -229,5 +229,7 @@ if __name__ == "__main__":
 
     load_dotenv()
 
-    results = fetch_all(type='publication')
-    print(f"Fetched {len(results)} publications")
+    results = search(query="solar cells", type='grant')
+    for result in results:
+        print(result)
+        print(result["name"])

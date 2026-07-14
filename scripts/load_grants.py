@@ -1,4 +1,5 @@
 import os
+from functools import cache
 
 import pandas as pd
 from dotenv import dotenv_values
@@ -26,15 +27,16 @@ if not os.path.exists(CONFIG_PATH):
         "Ensure 'conf/pat-prod.env' exists in the tableau_api repo."
     )
 
-settings = dotenv_values(CONFIG_PATH)
-
-tableau_auth = TSC.PersonalAccessTokenAuth(
-    settings["ACCESS_TOKEN_NAME"], settings["PERSONAL_ACCESS_TOKEN"]
-)
-server = TSC.Server(settings["SERVER_URL"])
-server.auth.sign_in(tableau_auth)
-
-client = VizQLDataServiceClient(settings["SERVER_URL"], server, tableau_auth)
+@cache
+def _get_client() -> VizQLDataServiceClient:
+    """Return a cached VizQL data service client (initialized lazily)."""
+    settings = dotenv_values(CONFIG_PATH)
+    tableau_auth = TSC.PersonalAccessTokenAuth(
+        settings["ACCESS_TOKEN_NAME"], settings["PERSONAL_ACCESS_TOKEN"]
+    )
+    server = TSC.Server(settings["SERVER_URL"])
+    server.auth.sign_in(tableau_auth)
+    return VizQLDataServiceClient(settings["SERVER_URL"], server, tableau_auth)
 
 
 GRANTS_LUID = "0fbeb8ba-5b3c-4809-85b9-340b6934363f"
@@ -102,6 +104,7 @@ def _full_name(firstname, lastname) -> str | None:
 
 def extract_data(luid: str) -> pd.DataFrame:
     """Query the selected grant fields from Tableau and return a DataFrame."""
+    client = _get_client()
     datasource = Datasource(datasourceLuid=luid)
 
     meta_request = ReadMetadataRequest(datasource=datasource)
@@ -171,14 +174,7 @@ def build_text(row: pd.Series) -> str:
 
 
 def load_grants() -> list[Grant]:
-    """
-    Fetch grants data from Tableau and map every row to a ``Grant`` document.
-
-    Returns
-    -------
-    list[Grant]
-        Grant documents ready for indexing.
-    """
+    """Fetch grants data from Tableau and return a list of ``Grant`` documents."""
     df = extract_data(GRANTS_LUID)
 
     if df.empty:

@@ -135,13 +135,14 @@ def load_publications(data: dict) -> list[Publication]:
         pub_id = row["publication_id"]
         authors = pub_authors_by_id.get(pub_id, [])
         units = pub_units_by_id.get(pub_id, [])
+        title = row["title"] if pd.notna(row["title"]) else None
         records.append(Publication(
             id=f"publication:{pub_id}",
-            name=row["title"] if pd.notna(row["title"]) else None,
+            name=title if title is not None else "",
             text=build_text(row, authors),
             url=row["infoscience_url"] if pd.notna(row["infoscience_url"]) else (row["openalex_url"] if pd.notna(row["openalex_url"]) else None),
             publication_id=str(pub_id),
-            title=row["title"] if pd.notna(row["title"]) else None,
+            title=title,
             year=int(row["year"]) if pd.notna(row["year"]) else None,
             doi=row["doi"] if pd.notna(row["doi"]) else None,
             infoscience_url=row["infoscience_url"] if pd.notna(row["infoscience_url"]) else None,
@@ -271,7 +272,7 @@ def load_units(data: dict) -> list[Unit]:
         pub_titles = [p.title for p in unit_publications if p.title]
         if pub_titles:
             text_parts.append("Publications: " + " | ".join(pub_titles))
-        unit_text = "\n".join(text_parts) if text_parts else None
+        unit_text = "\n".join(text_parts) if text_parts else (unit_name_str or "")
 
         records.append(Unit(
             id=f"unit:{cf}",
@@ -291,7 +292,7 @@ def load_units(data: dict) -> list[Unit]:
     return records
 
 
-def load_all() -> tuple[list[Publication], list[Professor], list[Unit]]:
+def load_prof_api() -> tuple[list[Publication], list[Professor], list[Unit]]:
     data = _load_csvs()
     publications = load_publications(data)
     professors = load_professors(data)
@@ -300,7 +301,7 @@ def load_all() -> tuple[list[Publication], list[Professor], list[Unit]]:
 
 
 if __name__ == "__main__":
-    publications, professors, units = load_all()
+    publications, professors, units = load_prof_api()
     print(f"Loaded {len(publications)} publications, {len(professors)} professors, {len(units)} units")
     if publications:
         print(f"Sample publication:")

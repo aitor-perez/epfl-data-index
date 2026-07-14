@@ -11,6 +11,7 @@ from epfl_data_index.models.relations import (
 )
 from epfl_data_index.models.unit import NestedUnit, Unit
 from epfl_data_index.models.grant import Grant, NestedGrant
+from epfl_data_index.models.eu_call import EUCall
 
 def rebuild_models() -> None:
     """Rebuild all model classes to resolve forward references."""
@@ -25,6 +26,7 @@ def rebuild_models() -> None:
     Unit.model_rebuild(_types_namespace=namespace)
     Professor.model_rebuild(_types_namespace=namespace)
     Grant.model_rebuild(_types_namespace=namespace)
+    EUCall.model_rebuild(_types_namespace=namespace)
 
 
 rebuild_models()

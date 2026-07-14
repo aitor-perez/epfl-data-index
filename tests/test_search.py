@@ -88,7 +88,10 @@ def test_search_query_building():
     mock_client = MagicMock()
     mock_client.search.return_value = {"hits": {"hits": [{"_id": "1", "_score": 0.9, "_source": {"id": "1"}}], "total": {"value": 1, "relation": "eq"}}}
 
-    with patch("epfl_data_index.search.CONFIG", {"EDI_OPENSEARCH_EMBEDDING_MODEL_ID": "test-model"}):
+    with patch("epfl_data_index.search.CONFIG", {
+        "EDI_OPENSEARCH_EMBEDDING_MODEL_ID": "test-model",
+        "EDI_OPENSEARCH_INDEX_NAME": "test",
+    }):
         with patch("epfl_data_index.search.get_client", return_value=mock_client):
             results = search(["machine learning", "healthcare"], type="publication", size=5)
 
@@ -111,7 +114,10 @@ def test_search_excludes_text_and_embeddings_by_default():
     mock_client = MagicMock()
     mock_client.search.return_value = {"hits": {"hits": [], "total": {"value": 0, "relation": "eq"}}}
 
-    with patch("epfl_data_index.search.CONFIG", {"EDI_OPENSEARCH_EMBEDDING_MODEL_ID": "test-model"}):
+    with patch("epfl_data_index.search.CONFIG", {
+        "EDI_OPENSEARCH_EMBEDDING_MODEL_ID": "test-model",
+        "EDI_OPENSEARCH_INDEX_NAME": "test",
+    }):
         with patch("epfl_data_index.search.get_client", return_value=mock_client):
             search("machine learning")
 
@@ -123,7 +129,10 @@ def test_search_includes_text_when_requested():
     mock_client = MagicMock()
     mock_client.search.return_value = {"hits": {"hits": [], "total": {"value": 0, "relation": "eq"}}}
 
-    with patch("epfl_data_index.search.CONFIG", {"EDI_OPENSEARCH_EMBEDDING_MODEL_ID": "test-model"}):
+    with patch("epfl_data_index.search.CONFIG", {
+        "EDI_OPENSEARCH_EMBEDDING_MODEL_ID": "test-model",
+        "EDI_OPENSEARCH_INDEX_NAME": "test",
+    }):
         with patch("epfl_data_index.search.get_client", return_value=mock_client):
             search("machine learning", include_text=True)
 
@@ -135,7 +144,10 @@ def test_search_includes_embeddings_when_requested():
     mock_client = MagicMock()
     mock_client.search.return_value = {"hits": {"hits": [], "total": {"value": 0, "relation": "eq"}}}
 
-    with patch("epfl_data_index.search.CONFIG", {"EDI_OPENSEARCH_EMBEDDING_MODEL_ID": "test-model"}):
+    with patch("epfl_data_index.search.CONFIG", {
+        "EDI_OPENSEARCH_EMBEDDING_MODEL_ID": "test-model",
+        "EDI_OPENSEARCH_INDEX_NAME": "test",
+    }):
         with patch("epfl_data_index.search.get_client", return_value=mock_client):
             search("machine learning", include_embeddings=True)
 
