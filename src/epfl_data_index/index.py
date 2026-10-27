@@ -52,6 +52,10 @@ def index_documents(docs: list[Document], index_name: Optional[str] = None) -> N
         for doc in docs
     ]
 
+    # The ingest pipeline batches `batch_size`=32 documents into a single
+    # prediction request, and the remote gateway counts requests (not texts)
+    # against max_parallel_requests. Keep chunk_size aligned with the
+    # pipeline's batch_size so each chunk maps to exactly one inference call.
     bulk = helpers.parallel_bulk(
         get_client(),
         actions,

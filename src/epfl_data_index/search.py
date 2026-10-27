@@ -229,7 +229,7 @@ if __name__ == "__main__":
 
     load_dotenv()
 
-    results = search(query="solar cells", type='grant')
+    results = search(query="solar cells", type=None)
     for result in results:
         print(result)
         print(result["name"])

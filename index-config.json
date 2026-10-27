@@ -1,11 +1,11 @@
 {
    "settings":{
       "index":{
-         "number_of_shards":1,
-         "number_of_replicas":0,
+         "number_of_shards":5,
+         "number_of_replicas":1,
          "knn": true
       },
-      "default_pipeline": "nlp-ingest-pipeline"
+      "default_pipeline": "text-to-embedding"
    },
    "mappings":{
       "dynamic":true,
