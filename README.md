@@ -62,7 +62,7 @@ orgs = [
 edi.index_documents(orgs)
 ```
 
-All search and index functions accept an optional `index_name` argument. If omitted, they default to `"test"`.
+All search and index functions accept an optional `index_name` argument. If omitted, they default to the value of `EDI_OPENSEARCH_INDEX_NAME` (see below).
 
 ## Setup
 
@@ -113,8 +113,8 @@ Optional variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `EDI_OPENSEARCH_EMBEDDING_MODEL_ID` | `1qybAp4BjzNfTND26ePS` | OpenSearch text-embedding model ID. |
-| `EDI_OPENSEARCH_INDEX_NAME` | `test` | Default index name used when `index_name` is not passed explicitly. |
+| `EDI_OPENSEARCH_EMBEDDING_MODEL_ID` | `77D-56ABnEX0QP_uqWw7` | OpenSearch text-embedding model ID. |
+| `EDI_OPENSEARCH_INDEX_NAME` | `shared_test_260928` | Default index name used when `index_name` is not passed explicitly. |
 
 ## Reindex core documents
 

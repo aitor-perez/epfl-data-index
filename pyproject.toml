@@ -13,6 +13,7 @@ dependencies = [
     "opensearch-py",
     "pandas",
     "pydantic",
+    "python-dotenv",
     "requests",
 ]
 
