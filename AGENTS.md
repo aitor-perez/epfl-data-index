@@ -6,7 +6,7 @@
 |------|-------|
 | Language | Python 3.11+ |
 | Build tool | Hatchling (`pip install -e .`) |
-| Package | `src/epfl_data_index` |
+| Packages | `src/epfl_data_index` (OpenSearch index) · `src/edi_pipeline` (live data retrieval) |
 | Author | Aitor Pérez <aitor.perez@epfl.ch> |
 
 ## Build & Run
@@ -52,17 +52,32 @@ EDI_OPENSEARCH_PASSWORD=your_password
 |----------|---------|-------------|
 | `EDI_OPENSEARCH_EMBEDDING_MODEL_ID` | `77D-56ABnEX0QP_uqWw7` | OpenSearch text-embedding model ID. |
 | `EDI_OPENSEARCH_INDEX_NAME` | `shared_test_260928` | Default index name used when `index_name` is not passed explicitly. |
+| `EDI_PIPELINE_OPENALEX_API_KEY` or `API_KEY_OPENALEX` | — | OpenAlex API key used by `edi_pipeline` (`edi_pipeline/config.py`). |
+| `INFOSCIENCE_TOKEN` | — | Optional Infoscience bearer token; anonymous access already covers public metadata. |
 
 ## Architecture
 
 - **client.py** — `get_client()` returns a configured `opensearchpy.OpenSearch` instance (SSL, no cert verify).
 - **config.py** — A thin `_Config` class that reads required settings from environment variables. Optional variables are listed in `OPTIONAL_ENV_DEFAULTS` and fall back to their default values when not set.
-- **models/** — Pydantic models: `Document` base class, `Publication`, `Professor`, `Unit`, `Grant`, `EUCall`, plus nested variants for many-to-many relations. `Document` requires `id`, `type`, `name` and `text`.
+- **models/** — Pydantic models: `Document` base class, `Publication`, `Professor`, `Unit`, `Grant`, `EUCall`, plus nested variants for many-to-many relations. `Document` requires `id`, `type`, `name` and `text`. Recent additions: `Professor.orcid` and `Professor.is_professor` (non-professor researchers are also indexed, under type `professor`), and `Publication.written_at` (Infoscience `epfl.writtenAt`: `"EPFL"` or `None` for retrospective deposits).
 - **search.py** — Public API surface (`search`, `fetch_all`, `knn`, `embed`). `search` performs neural (embedding) search over the `text` field and returns a list of source dicts (including `_score`). `fetch_all` uses point-in-time (PIT) pagination and returns a list of source dicts. `knn` finds nearest neighbors by document ID and returns a list of source dicts (including `_score`). `search`, `fetch_all` and `knn` accept `include_text` and `include_embeddings` flags (both default to `False`) to avoid returning heavy fields.
 - **index.py** — Index management (`create_index`, `index_documents`). Documents are indexed once with the `text` field defined by the loader scripts; the cluster's default ingest pipeline computes the embedding from that text.
 - **scripts/load_prof_api.py** — Fetches CSVs from an internal SQL API (professors, publications, units), normalizes data, returns lists of Pydantic models.
 - **scripts/load_grants.py** — Loads grants from the Tableau API (requires the external `tableau_api` repo).
 - **scripts/load_eu_calls.py** — Loads EU calls from a local CSV (`data/eu_calls.csv`).
+
+### edi_pipeline — live data retrieval (`src/edi_pipeline/`)
+
+Fetch layer for publications and researchers from live sources (no source CSVs). Currently **fetch-only**: matching/merging (author disambiguation via the external `setmatch` package), transforms and indexing are deferred.
+
+- **cache.py** — Append-only JSONL cache keyed by full URL (re-runs make no network calls) and `get_json` with retries on 403/429 and a polite delay between requests.
+- **config.py** — API endpoints, page sizes and HTTP behaviour; optional credentials from env.
+- **fetch/infoscience.py** — EPFL publications since a date: `configuration=RELATION.OrgUnit.publications` scoped to the EPFL root OrgUnit, `dc.date.issued` range, 100/page. Deliberately *not* filtered on `epfl.writtenAt` (retrospective deposits are kept; the value is captured as `written_at`) and *not* using `projection=preventMetadataSecurity` (it strips the `cris.virtual.*` fields). `parse_publication` resolves author scipers via the author `authority` UUID aligned with `cris.virtualsource.sciperId`/`cris.virtual.sciperId`, and keeps `dc.description.sponsorship` for lab attribution (never `cris.virtual.department` — that reflects the author's *current* affiliation).
+- **fetch/openalex.py** — Works by DOI (OR-filter chunks of ≤100, misses cached as negatives), works by author (cursor paging), author details, abstract reconstruction from OpenAlex's inverted index.
+- **fetch/units.py** — Unit lookup by acronym via `https://search-api.epfl.ch/api/unit` (name, CF, path, head). Enrichment only: sponsorship unit codes stay canonical, and the API's current member list is deliberately unused.
+- **fetch/orcid.py** — sciper → ORCID map from EPFL's ORCID integration service (fetched, not yet consumed).
+
+Researchers are *not* fetched as profiles: they are derived from publication authors downstream, so a researcher appears only if they authored a publication since the cutoff date.
 
 ## OpenSearch Details
 
@@ -90,3 +105,4 @@ EDI_OPENSEARCH_PASSWORD=your_password
 - Run tests with `python -m pytest tests/`.
 - Reindex core documents with `python scripts/reindex.py`.
 - `scripts/load_prof_api.py` hits an internal EPFL endpoint (`itsisa0052.xaas.epfl.ch:5001`)—scripts will fail outside the EPFL network.
+- `edi_pipeline` is not yet listed in `[tool.hatch.build.targets.wheel]` packages, so `pip install -e .` does not install it; import it with `PYTHONPATH=src` (or add it to the wheel packages).

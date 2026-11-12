@@ -14,6 +14,9 @@ class Publication(Document):
     infoscience_url: Optional[str] = None
     openalex_url: Optional[str] = None
     abstract: Optional[str] = None
+    # Infoscience epfl.writtenAt: "EPFL" when written at EPFL, None for
+    # retrospective deposits (kept, not filtered, at fetch time).
+    written_at: Optional[str] = None
 
     authors: list["NestedProfessor"] = []
     units: list["NestedUnit"] = []

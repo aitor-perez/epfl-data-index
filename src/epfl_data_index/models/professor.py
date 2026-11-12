@@ -13,6 +13,8 @@ class Professor(Document):
     firstname: Optional[str] = None
     creation_date: Optional[str] = None
     class_acc: Optional[str] = None
+    orcid: Optional[str] = None
+    is_professor: bool = False
 
     publications: list["NestedPublication"] = []
     units: list["ProfessorUnit"] = []
