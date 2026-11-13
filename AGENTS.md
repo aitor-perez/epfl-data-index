@@ -68,14 +68,15 @@ EDI_OPENSEARCH_PASSWORD=your_password
 
 ### edi_pipeline — live data retrieval (`src/edi_pipeline/`)
 
-Fetch layer for publications and researchers from live sources (no source CSVs). Currently **fetch-only**: matching/merging (author disambiguation via the external `setmatch` package), transforms and indexing are deferred.
+Fetch layer for publications and researchers from live sources (no source CSVs), plus the first merge step: reconciling Infoscience publications with OpenAlex works. Author disambiguation (via the external `setmatch` package), transforms and indexing are deferred.
 
 - **cache.py** — Append-only JSONL cache keyed by full URL (re-runs make no network calls) and `get_json` with retries on 403/429 and a polite delay between requests.
 - **config.py** — API endpoints, page sizes and HTTP behaviour; optional credentials from env.
 - **fetch/infoscience.py** — EPFL publications since a date: `configuration=RELATION.OrgUnit.publications` scoped to the EPFL root OrgUnit, `dc.date.issued` range, 100/page. Deliberately *not* filtered on `epfl.writtenAt` (retrospective deposits are kept; the value is captured as `written_at`) and *not* using `projection=preventMetadataSecurity` (it strips the `cris.virtual.*` fields). `parse_publication` resolves author scipers via the author `authority` UUID aligned with `cris.virtualsource.sciperId`/`cris.virtual.sciperId`, and keeps `dc.description.sponsorship` for lab attribution (never `cris.virtual.department` — that reflects the author's *current* affiliation).
-- **fetch/openalex.py** — Works by DOI (OR-filter chunks of ≤100, misses cached as negatives), works by author (cursor paging), author details, abstract reconstruction from OpenAlex's inverted index.
+- **fetch/openalex.py** — Works by DOI (OR-filter chunks of ≤100, misses cached as negatives), all EPFL works in a date range (`fetch_epfl_works`: `authorships.institutions.lineage` filter, so EPFL's child institutions are included), works by author (cursor paging), author details, abstract reconstruction from OpenAlex's inverted index.
 - **fetch/units.py** — Unit lookup by acronym via `https://search-api.epfl.ch/api/unit` (name, CF, path, head). Enrichment only: sponsorship unit codes stay canonical, and the API's current member list is deliberately unused.
 - **fetch/orcid.py** — sciper → ORCID map from EPFL's ORCID integration service (fetched, not yet consumed).
+- **merge/publications.py** — One-to-one matching of Infoscience records and OpenAlex works: same DOI first, then same normalized title with agreeing authors (surname trigram overlap). Same-DOI pairs left out are reported as duplicates. Run by `scripts/reconcile_publications.py`, which downloads both sources into `data/` and writes `matches.csv` and `duplicates.csv`. Method and results: `src/edi_pipeline/docs/publication-reconciliation.md`.
 
 Researchers are *not* fetched as profiles: they are derived from publication authors downstream, so a researcher appears only if they authored a publication since the cutoff date.
 
