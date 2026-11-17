@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import urllib.parse
+from datetime import date
 from typing import Any, Iterator
 
 from edi_pipeline.config import (
@@ -96,18 +97,21 @@ def fetch_epfl_works(
     types: str | None = None,
     max_records: int | None = None,
 ) -> Iterator[dict[str, Any]]:
-    """Yield works with at least one EPFL-affiliated authorship, published since `since`.
+    """Yield works with an EPFL-affiliated authorship, published between `since` and `until`.
 
-    `since`/`until` are "YYYY-MM-DD"; for "at most 10 years old", pass
-    `fetch.since_years_ago(10)`. EPFL is matched on the institution itself
+    `since`/`until` are "YYYY-MM-DD"; `until` defaults to today, which leaves
+    out works with a future publication date. For "at most 10 years old",
+    pass `fetch.since_years_ago(10)`. EPFL is matched on the institution itself
     (`authorships.institutions.id`), not its OpenAlex lineage, which also
     pulls in child entities such as the joint EPFL/ETH Swiss Data Science
     Center. `types` is an OpenAlex type filter ("article|book"); None keeps
     all types, the closest match to Infoscience's coverage.
     """
-    parts = [f"authorships.institutions.id:{EPFL_OPENALEX_ID}", f"from_publication_date:{since}"]
-    if until:
-        parts.append(f"to_publication_date:{until}")
+    parts = [
+        f"authorships.institutions.id:{EPFL_OPENALEX_ID}",
+        f"from_publication_date:{since}",
+        f"to_publication_date:{until or date.today().isoformat()}",
+    ]
     if types:
         parts.append(f"type:{types}")
     return _iter_works(",".join(parts), max_records=max_records)

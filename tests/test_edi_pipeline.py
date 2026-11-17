@@ -3,7 +3,7 @@ from datetime import date
 from urllib.parse import parse_qs, urlparse
 
 from edi_pipeline.fetch import normalize_doi, since_years_ago
-from edi_pipeline.fetch import openalex
+from edi_pipeline.fetch import infoscience, openalex
 from edi_pipeline.fetch.infoscience import parse_publication
 
 UUID_A = "0a1b2c3d-1111-2222-3333-444455556666"
@@ -103,9 +103,22 @@ def test_fetch_epfl_works_filter(monkeypatch):
     monkeypatch.setattr(openalex, "get_json", fake_get_json)
     list(openalex.fetch_epfl_works(since="2016-11-17"))
     assert seen["filter"] == [
-        f"authorships.institutions.id:{openalex.EPFL_OPENALEX_ID},from_publication_date:2016-11-17"
+        f"authorships.institutions.id:{openalex.EPFL_OPENALEX_ID},"
+        f"from_publication_date:2016-11-17,to_publication_date:{date.today().isoformat()}"
     ]
     assert seen["cursor"] == ["*"]
+
+
+def test_infoscience_date_range_capped_at_today(monkeypatch):
+    seen = {}
+
+    def fake_get_json(url, headers=None):
+        seen.update(parse_qs(urlparse(url).query))
+        return {"_embedded": {"searchResult": {"page": {"totalPages": 1}}}}
+
+    monkeypatch.setattr(infoscience, "get_json", fake_get_json)
+    list(infoscience.fetch_publications_since("2016-11-17"))
+    assert seen["query"] == [f"dc.date.issued:[2016-11-17 TO {date.today().isoformat()}]"]
 
 
 def test_doi_filter_names_the_field_once(monkeypatch):

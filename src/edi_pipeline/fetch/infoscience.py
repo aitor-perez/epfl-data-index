@@ -38,6 +38,7 @@ from __future__ import annotations
 import logging
 import re
 import urllib.parse
+from datetime import date
 from typing import Any, Iterator
 
 from edi_pipeline.config import (
@@ -111,18 +112,20 @@ def search_objects(
 
 
 def fetch_publications_since(
-    since: str, max_records: int | None = None
+    since: str, until: str | None = None, max_records: int | None = None
 ) -> Iterator[dict[str, Any]]:
-    """Yield raw EPFL publications issued since `since` ("YYYY-MM-DD" or "YYYY").
+    """Yield raw EPFL publications issued between `since` and `until` ("YYYY-MM-DD").
 
-    EPFL-wide (root OrgUnit scope), newest first, retrospective deposits
-    included. Use `parse_publication` to extract fields and authors. For
-    "at most 10 years old", pass `fetch.since_years_ago(10)`.
+    `until` defaults to today, which leaves out forthcoming publications
+    already deposited with a future issue date. EPFL-wide (root OrgUnit
+    scope), newest first, retrospective deposits included. Use
+    `parse_publication` to extract fields and authors. For "at most 10 years
+    old", pass `fetch.since_years_ago(10)`.
 
     Note: this selects by issue date. For incremental harvesting of *changed*
     records, the documented field is `lastModified` (updates + new deposits).
     """
-    query = f"dc.date.issued:[{since} TO *]"
+    query = f"dc.date.issued:[{since} TO {until or date.today().isoformat()}]"
     return search_objects(
         PUB_CONFIGURATION,
         query=query,
