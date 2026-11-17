@@ -103,7 +103,7 @@ def test_fetch_epfl_works_filter(monkeypatch):
     monkeypatch.setattr(openalex, "get_json", fake_get_json)
     list(openalex.fetch_epfl_works(since="2016-11-17"))
     assert seen["filter"] == [
-        f"authorships.institutions.id:{openalex.EPFL_OPENALEX_ID},"
+        f"authorships.institutions.lineage:{openalex.EPFL_OPENALEX_ID},"
         f"from_publication_date:2016-11-17,to_publication_date:{date.today().isoformat()}"
     ]
     assert seen["cursor"] == ["*"]
