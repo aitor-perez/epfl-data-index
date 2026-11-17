@@ -17,21 +17,20 @@ import logging
 import urllib.parse
 from typing import Any
 
-from edi_pipeline.cache import JsonlCache, get_json
 from edi_pipeline.config import EPFL_SEARCH_API_URL
+from edi_pipeline.http_client import get_json
 
 logger = logging.getLogger(__name__)
 
 
-def fetch_unit(acronym: str, cache: JsonlCache | None = None) -> dict[str, Any] | None:
+def fetch_unit(acronym: str) -> dict[str, Any] | None:
     """Look up one unit by its acronym (e.g. "TRANSP-OR").
 
     Returns {acronym, cf, name, unit_path, head} or None when the acronym is
-    unknown. Not cached by default: names and heads can change, and the
-    volume (hundreds of labs) is too small for caching to matter.
+    unknown.
     """
     url = f"{EPFL_SEARCH_API_URL}?q={urllib.parse.quote(acronym)}"
-    data = get_json(url, cache)
+    data = get_json(url)
 
     if isinstance(data, dict):
         if not data or str(data.get("acronym") or "").upper() != acronym.upper():
@@ -51,13 +50,11 @@ def fetch_unit(acronym: str, cache: JsonlCache | None = None) -> dict[str, Any] 
     return None
 
 
-def fetch_units(
-    acronyms: list[str], cache: JsonlCache | None = None
-) -> dict[str, dict[str, Any] | None]:
+def fetch_units(acronyms: list[str]) -> dict[str, dict[str, Any] | None]:
     """Look up many unit acronyms; returns {acronym: unit or None}."""
     units: dict[str, dict[str, Any] | None] = {}
     for acronym in sorted(set(acronyms)):
-        units[acronym] = fetch_unit(acronym, cache=cache)
+        units[acronym] = fetch_unit(acronym)
     found = sum(1 for unit in units.values() if unit)
     logger.info("Unit lookup: %d/%d acronyms resolved", found, len(units))
     return units

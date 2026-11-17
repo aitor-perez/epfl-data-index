@@ -70,10 +70,11 @@ EDI_OPENSEARCH_PASSWORD=your_password
 
 Fetch layer for publications and researchers from live sources (no source CSVs). Currently **fetch-only**: publication matching, author disambiguation (via the external `setmatch` package), transforms and indexing are deferred. See *Planned pipeline* below.
 
-- **cache.py** — Append-only JSONL cache keyed by full URL (re-runs make no network calls) and `get_json` with retries on 403/429 and a polite delay between requests.
+- **http_client.py** — `get_json`, with retries on 403/429 and a polite delay between requests. No cache: the pipeline always works on fresh data.
+- **fetch/\_\_init\_\_.py** — Shared helpers: `normalize_doi` (bare, lowercase; applied to both sources) and `since_years_ago(n)`, the lower date bound for "at most n years old" (the plan uses 10).
 - **config.py** — API endpoints, page sizes and HTTP behaviour; optional credentials from env.
-- **fetch/infoscience.py** — EPFL publications since a date: `configuration=RELATION.OrgUnit.publications` scoped to the EPFL root OrgUnit, `dc.date.issued` range, 100/page. Deliberately *not* filtered on `epfl.writtenAt` (retrospective deposits are kept; the value is captured as `written_at`) and *not* using `projection=preventMetadataSecurity` (it strips the `cris.virtual.*` fields). `parse_publication` resolves author scipers via the author `authority` UUID aligned with `cris.virtualsource.sciperId`/`cris.virtual.sciperId`, and keeps `dc.description.sponsorship` for lab attribution (never `cris.virtual.department` — that reflects the author's *current* affiliation).
-- **fetch/openalex.py** — Works by DOI (OR-filter chunks of ≤100, misses cached as negatives), works by author (cursor paging), author details, abstract reconstruction from OpenAlex's inverted index.
+- **fetch/infoscience.py** — EPFL publications since a date: `configuration=RELATION.OrgUnit.publications` scoped to the EPFL root OrgUnit, `dc.date.issued` range, 100/page. Deliberately *not* filtered on `epfl.writtenAt` (retrospective deposits are kept; the value is captured as `written_at`) and *not* using `projection=preventMetadataSecurity` (it strips the `cris.virtual.*` fields). `parse_publication` returns each author as `{name, sciper, authority}`. `authority` is the Infoscience person UUID, kept even when there is no sciper. The sciper is resolved by aligning that UUID with `cris.virtualsource.sciperId`/`cris.virtual.sciperId`, or read from a pending link `will be referenced::SCIPER-ID::<sciper>`, which has no UUID. `parse_publication` also keeps `dc.description.sponsorship` for lab attribution (never `cris.virtual.department` — that reflects the author's *current* affiliation).
+- **fetch/openalex.py** — Works with an EPFL-affiliated authorship since a date (`fetch_epfl_works`: `authorships.institutions.id:I5124864`, the institution itself rather than its lineage, all types by default, cursor paging at 200/page, yields lazily). Also works by DOI (OR-filter chunks of ≤100; the field name is written once, `doi:a|b`), works by author, author details, and `parse_work` (normalized DOI, rebuilt abstract, authors with `raw_author_name`, ORCID and an `is_epfl` flag). List endpoints truncate `authorships` at 100, so any work returned with 100 is re-fetched on its own to get the full author list (`complete_authorships`).
 - **fetch/units.py** — Unit lookup by acronym via `https://search-api.epfl.ch/api/unit` (name, CF, path, head). Sponsorship unit codes stay canonical for publication attribution. The API's current member list is unused today; it is planned as the source of the researcher–unit relation (see *Planned pipeline*).
 - **fetch/orcid.py** — sciper → ORCID map from EPFL's ORCID integration service (fetched, not yet consumed).
 
@@ -92,7 +93,6 @@ The goal is to use OpenAlex to recover researchers' history before they joined E
 
 Implications for the current code:
 
-- `parse_publication` must keep each author's `authority` UUID, not only the sciper. Profiles without a sciper are identified by that UUID alone.
 - New fetchers are needed: OpenAlex works by EPFL institution and date range; OpenAlex works by *batches* of author IDs, with an optional year range (`fetch_works_by_author` takes one ID and a required range); Infoscience publications by person UUID.
 - `fetch_works_by_dois` becomes secondary to the fuzzy matcher.
 - The current member list from `fetch/units.py` (search-api) will now be used, for the researcher–unit relation below.
@@ -139,4 +139,4 @@ Open questions:
 - Run tests with `python -m pytest tests/`.
 - Reindex core documents with `python scripts/reindex.py`.
 - `scripts/load_prof_api.py` hits an internal EPFL endpoint (`itsisa0052.xaas.epfl.ch:5001`)—scripts will fail outside the EPFL network.
-- `edi_pipeline` is not yet listed in `[tool.hatch.build.targets.wheel]` packages, so `pip install -e .` does not install it; import it with `PYTHONPATH=src` (or add it to the wheel packages).
+- `edi_pipeline` is not yet listed in `[tool.hatch.build.targets.wheel]` packages, so `pip install -e .` does not install it; import it with `PYTHONPATH=src` (or add it to the wheel packages). Pytest sets `pythonpath = ["src"]`, so `tests/test_edi_pipeline.py` works as is; those tests are offline, with HTTP monkeypatched.

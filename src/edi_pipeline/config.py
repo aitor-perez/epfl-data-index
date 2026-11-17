@@ -16,7 +16,10 @@ EPFL_SEARCH_API_URL = "https://search-api.epfl.ch/api/unit"
 INFOSCIENCE_PAGE_SIZE = 100
 # OpenAlex OR-filters accept at most 100 values per request.
 OPENALEX_CHUNK_SIZE = 100
-OPENALEX_PER_PAGE = 100
+# OpenAlex list endpoints allow up to 200 results per page.
+OPENALEX_PER_PAGE = 200
+# EPFL in OpenAlex, resolved from its ROR (https://ror.org/02s376052).
+EPFL_OPENALEX_ID = "I5124864"
 
 REQUEST_TIMEOUT = 60
 POLITE_DELAY_SECONDS = 0.15

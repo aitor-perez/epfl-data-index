@@ -37,7 +37,7 @@
 
   <!-- Title + legend -->
   <text x="40" y="44" font-size="20" font-weight="700">edi_pipeline — planned pipeline</text>
-  <text x="40" y="66" class="note">All HTTP goes through get_json (retries on 403/429, polite delay) + JsonlCache keyed by URL, so re-runs make no network calls.</text>
+  <text x="40" y="66" class="note">All HTTP goes through get_json (retries on 403/429, polite delay). No cache: every run fetches fresh data.</text>
   <rect x="800" y="31" width="18" height="13" rx="2" class="done"/><text x="824" y="42">exists today</text>
   <rect x="920" y="31" width="18" height="13" rx="2" class="todo"/><text x="944" y="42">to build</text>
   <rect x="1030" y="31" width="18" height="13" rx="2" class="opt"/><text x="1054" y="42">optional / TBD</text>
@@ -49,15 +49,15 @@
   <text x="74" y="162" class="h">Infoscience</text>
   <text x="74" y="182" class="mono">fetch_publications_since(…)</text>
   <text x="74" y="198">→ publications, sponsorship,</text>
-  <text x="74" y="214">authors: name, sciper | None</text>
-  <text x="74" y="240" class="chg">change: keep author authority UUID</text>
+  <text x="74" y="214">authors: name, sciper, authority</text>
+  <text x="74" y="236" class="note">authority UUID kept even without sciper</text>
 
-  <rect x="350" y="140" width="250" height="118" rx="6" class="todo"/>
+  <rect x="350" y="140" width="250" height="118" rx="6" class="done"/>
   <text x="364" y="162" class="h">OpenAlex: EPFL works</text>
-  <text x="364" y="182">new fetcher: institution = EPFL,</text>
-  <text x="364" y="198">date range, cursor paging</text>
-  <text x="364" y="214">→ works + authorships</text>
-  <text x="364" y="230">(author ID, name, ORCID)</text>
+  <text x="364" y="182" class="mono">fetch_epfl_works(since)</text>
+  <text x="364" y="198">→ works + authorships</text>
+  <text x="364" y="214">(author ID, name, ORCID)</text>
+  <text x="364" y="236" class="note">&gt;100 authors: re-fetched per work</text>
 
   <rect x="640" y="140" width="250" height="118" rx="6" class="opt"/>
   <text x="654" y="162" class="h">EPFL ORCID integration</text>

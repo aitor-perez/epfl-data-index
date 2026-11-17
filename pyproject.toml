@@ -22,3 +22,7 @@ test = ["pytest"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/epfl_data_index"]
+
+[tool.pytest.ini_options]
+# edi_pipeline is not in the wheel yet; make it importable in tests.
+pythonpath = ["src"]
