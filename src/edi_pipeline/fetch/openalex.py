@@ -101,14 +101,14 @@ def fetch_epfl_works(
 
     `since`/`until` are "YYYY-MM-DD"; `until` defaults to today, which leaves
     out works with a future publication date. For "at most 10 years old",
-    pass `fetch.since_years_ago(10)`. EPFL is matched on the institution itself
-    (`authorships.institutions.id`), not its OpenAlex lineage, which also
-    pulls in child entities such as the joint EPFL/ETH Swiss Data Science
-    Center. `types` is an OpenAlex type filter ("article|book"); None keeps
-    all types, the closest match to Infoscience's coverage.
+    pass `fetch.since_years_ago(10)`. EPFL is matched through its OpenAlex
+    lineage (`authorships.institutions.lineage`), so works affiliated only with
+    one of EPFL's child institutions are included too. `types` is an OpenAlex
+    type filter ("article|book"); None keeps all types, the closest match to
+    Infoscience's coverage.
     """
     parts = [
-        f"authorships.institutions.id:{EPFL_OPENALEX_ID}",
+        f"authorships.institutions.lineage:{EPFL_OPENALEX_ID}",
         f"from_publication_date:{since}",
         f"to_publication_date:{until or date.today().isoformat()}",
     ]
@@ -200,19 +200,24 @@ def _parse_authorship(authorship: dict[str, Any]) -> dict[str, Any]:
     `name` is the name as printed on the work (`raw_author_name`), which is
     what name matching should see; `display_name` is OpenAlex's canonical
     name for the author profile. `openalex_id` is None for authorships that
-    OpenAlex did not attach to a profile.
+    OpenAlex did not attach to a profile. `is_epfl` follows the same lineage
+    rule as `fetch_epfl_works`: an EPFL child institution counts as EPFL.
     """
     author = authorship.get("author") or {}
-    institution_ids = [
-        _short_id(inst["id"]) for inst in authorship.get("institutions") or [] if inst.get("id")
-    ]
+    institutions = authorship.get("institutions") or []
+    lineage = {
+        _short_id(ancestor)
+        for inst in institutions
+        for ancestor in (inst.get("lineage") or [inst.get("id")])
+        if ancestor
+    }
     return {
         "openalex_id": _short_id(author["id"]) if author.get("id") else None,
         "name": authorship.get("raw_author_name") or author.get("display_name"),
         "display_name": author.get("display_name"),
         "orcid": _bare_orcid(author.get("orcid")),
-        "institution_ids": institution_ids,
-        "is_epfl": EPFL_OPENALEX_ID in institution_ids,
+        "institution_ids": [_short_id(inst["id"]) for inst in institutions if inst.get("id")],
+        "is_epfl": EPFL_OPENALEX_ID in lineage,
     }
 
 
