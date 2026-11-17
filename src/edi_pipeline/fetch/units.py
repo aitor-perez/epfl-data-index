@@ -1,13 +1,15 @@
 """EPFL unit lookup by acronym via the EPFL search API.
 
 Infoscience's `dc.description.sponsorship` gives unit codes (LIDIAP,
-TRANSP-OR, ...) that are kept as the canonical identifiers; this lookup only
+TRANSP-OR, ...) that are kept as the canonical identifiers; this lookup
 enriches them with the unit's full name and head.
 
-Deliberately not used here: the current member list. Members come and go, and
-for publication attribution we rely on the per-publication sponsorship (the
-on-record affiliation at the moment of the publication) — never on a
-researcher's current unit.
+Two unit relations, kept separate (see AGENTS.md, *Planned pipeline*):
+
+- publication → unit comes from the per-publication sponsorship only (the
+  on-record attribution), never from a researcher's current unit;
+- researcher → unit is planned to come from the API's current member list,
+  which is not consumed yet.
 """
 from __future__ import annotations
 

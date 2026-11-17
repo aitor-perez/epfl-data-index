@@ -68,16 +68,50 @@ EDI_OPENSEARCH_PASSWORD=your_password
 
 ### edi_pipeline — live data retrieval (`src/edi_pipeline/`)
 
-Fetch layer for publications and researchers from live sources (no source CSVs). Currently **fetch-only**: matching/merging (author disambiguation via the external `setmatch` package), transforms and indexing are deferred.
+Fetch layer for publications and researchers from live sources (no source CSVs). Currently **fetch-only**: publication matching, author disambiguation (via the external `setmatch` package), transforms and indexing are deferred. See *Planned pipeline* below.
 
 - **cache.py** — Append-only JSONL cache keyed by full URL (re-runs make no network calls) and `get_json` with retries on 403/429 and a polite delay between requests.
 - **config.py** — API endpoints, page sizes and HTTP behaviour; optional credentials from env.
 - **fetch/infoscience.py** — EPFL publications since a date: `configuration=RELATION.OrgUnit.publications` scoped to the EPFL root OrgUnit, `dc.date.issued` range, 100/page. Deliberately *not* filtered on `epfl.writtenAt` (retrospective deposits are kept; the value is captured as `written_at`) and *not* using `projection=preventMetadataSecurity` (it strips the `cris.virtual.*` fields). `parse_publication` resolves author scipers via the author `authority` UUID aligned with `cris.virtualsource.sciperId`/`cris.virtual.sciperId`, and keeps `dc.description.sponsorship` for lab attribution (never `cris.virtual.department` — that reflects the author's *current* affiliation).
 - **fetch/openalex.py** — Works by DOI (OR-filter chunks of ≤100, misses cached as negatives), works by author (cursor paging), author details, abstract reconstruction from OpenAlex's inverted index.
-- **fetch/units.py** — Unit lookup by acronym via `https://search-api.epfl.ch/api/unit` (name, CF, path, head). Enrichment only: sponsorship unit codes stay canonical, and the API's current member list is deliberately unused.
+- **fetch/units.py** — Unit lookup by acronym via `https://search-api.epfl.ch/api/unit` (name, CF, path, head). Sponsorship unit codes stay canonical for publication attribution. The API's current member list is unused today; it is planned as the source of the researcher–unit relation (see *Planned pipeline*).
 - **fetch/orcid.py** — sciper → ORCID map from EPFL's ORCID integration service (fetched, not yet consumed).
 
 Researchers are *not* fetched as profiles: they are derived from publication authors downstream, so a researcher appears only if they authored a publication since the cutoff date.
+
+#### Planned pipeline (not yet implemented)
+
+The goal is to use OpenAlex to recover researchers' history before they joined EPFL, which Infoscience barely covers for recent hires. This replaces the approach `listeprof` used: there, OpenAlex author IDs were inferred from Infoscience DOIs and works were fetched over a fixed year window.
+
+1. **Fetch** the last 10 years of Infoscience publications and of OpenAlex works affiliated with EPFL.
+2. **Match publications** Infoscience ↔ OpenAlex with a fuzzy matcher that does not rely on DOI alone. Gaël is implementing it separately.
+3. **Disambiguate authors** with `setmatch`, which groups author profiles from both sources into clusters.
+4. **Keep sciper-anchored clusters**: a cluster is kept if it contains at least one Infoscience profile with a sciper, and then *all* its profiles are kept. For example, two Infoscience profiles (one with a sciper, one without) plus three OpenAlex profiles → all five are kept.
+5. **Fetch every publication involving a kept profile**, with no date cutoff, from OpenAlex by author ID and from Infoscience by person UUID. Then optionally re-run the fuzzy publication matcher to merge duplicates.
+6. **Transform and index** Publication, Professor and Unit documents.
+
+Implications for the current code:
+
+- `parse_publication` must keep each author's `authority` UUID, not only the sciper. Profiles without a sciper are identified by that UUID alone.
+- New fetchers are needed: OpenAlex works by EPFL institution and date range; OpenAlex works by *batches* of author IDs, with an optional year range (`fetch_works_by_author` takes one ID and a required range); Infoscience publications by person UUID.
+- `fetch_works_by_dois` becomes secondary to the fuzzy matcher.
+- The current member list from `fetch/units.py` (search-api) will now be used, for the researcher–unit relation below.
+
+Two separate unit relations, recorded independently:
+
+- **Publication → unit:** exactly as Infoscience records it (`dc.description.sponsorship`), when the publication is in Infoscience. Publications that exist only in OpenAlex, with no Infoscience match, have no units, and units are never inferred from authors. A publication's units can differ from all of its authors' units.
+- **Researcher → unit:** current memberships, from the search-api member lists of research units. Only members who are kept researchers are linked; other staff in those units are ignored.
+
+Scope assumptions: researchers are people with publications in Infoscience, and research units are units that appear in Infoscience sponsorship. We don't look people up by sciper, because every EPFL employee has a sciper and nothing tells researchers apart from other staff. Consequence: a researcher whose current unit has never sponsored a publication gets no researcher → unit link.
+
+The two relations mean different things: where the work was attributed versus where the person is now. They are not expected to agree and must not be reconciled with each other.
+
+Open questions:
+
+- **Chained matches.** If clusters are joined through links, one wrong link can pull a namesake into a sciper's cluster, and step 5 then fetches that person's whole history. What should happen to a cluster that contains two scipers?
+- **Output format of the fuzzy matcher.** For example, (Infoscience UUID, OpenAlex work ID, score) pairs.
+- **After step 5.** Does `setmatch` need to run again? Co-authors who appear only in the new works are not kept.
+- **Coverage.** Researchers with no EPFL-affiliated work in the 10-year window are not covered.
 
 ## OpenSearch Details
 

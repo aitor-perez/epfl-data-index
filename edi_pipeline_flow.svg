@@ -1,0 +1,202 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="1240" viewBox="0 0 1240 1240" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#1f2933">
+  <title>edi_pipeline — planned pipeline</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#52606d"/>
+    </marker>
+    <style>
+      .band  { fill: #f8f9fa; stroke: #e1e4e8; }
+      .bandt { font-size: 14px; font-weight: 700; fill: #3e4c59; }
+      .done  { fill: #eaf2fb; stroke: #3b6ea5; stroke-width: 1.5; }
+      .todo  { fill: #fdf4e3; stroke: #c07a12; stroke-width: 1.5; stroke-dasharray: 6 4; }
+      .opt   { fill: #f2f3f5; stroke: #8a949e; stroke-width: 1.5; stroke-dasharray: 3 3; }
+      .h     { font-size: 14px; font-weight: 700; }
+      .mono  { font-family: Menlo, Consolas, monospace; font-size: 12px; fill: #234e7a; }
+      .note  { font-size: 11.5px; fill: #616e7c; font-style: italic; }
+      .chg   { font-size: 11.5px; fill: #a85d00; font-style: italic; font-weight: 600; }
+      .edge  { fill: none; stroke: #52606d; stroke-width: 1.4; marker-end: url(#arrow); }
+      .dash  { stroke-dasharray: 4 3; }
+      .bus   { fill: none; stroke: #52606d; stroke-width: 1.4; }
+      .lbl   { font-size: 11px; fill: #52606d; }
+      .chipS { fill: #dcebdc; stroke: #3f7d3f; }
+      .chipI { fill: #ffffff; stroke: #3f7d3f; }
+      .chipO { fill: #ffffff; stroke: #3b6ea5; }
+      .chipt { font-size: 11px; }
+    </style>
+  </defs>
+
+  <rect width="1240" height="1240" fill="#ffffff"/>
+
+  <!-- Band backgrounds first, so arrows are drawn above them -->
+  <rect x="40" y="84"   width="1160" height="196" rx="8" class="band"/>
+  <rect x="40" y="300"  width="1160" height="135" rx="8" class="band"/>
+  <rect x="40" y="455"  width="1160" height="235" rx="8" class="band"/>
+  <rect x="40" y="710"  width="1160" height="200" rx="8" class="band"/>
+  <rect x="40" y="930"  width="1160" height="165" rx="8" class="band"/>
+  <rect x="40" y="1115" width="1160" height="105" rx="8" class="band"/>
+
+  <!-- Title + legend -->
+  <text x="40" y="44" font-size="20" font-weight="700">edi_pipeline — planned pipeline</text>
+  <text x="40" y="66" class="note">All HTTP goes through get_json (retries on 403/429, polite delay) + JsonlCache keyed by URL, so re-runs make no network calls.</text>
+  <rect x="800" y="31" width="18" height="13" rx="2" class="done"/><text x="824" y="42">exists today</text>
+  <rect x="920" y="31" width="18" height="13" rx="2" class="todo"/><text x="944" y="42">to build</text>
+  <rect x="1030" y="31" width="18" height="13" rx="2" class="opt"/><text x="1054" y="42">optional / TBD</text>
+
+  <!-- ===== 1 · Fetch ===== -->
+  <text x="56" y="106" class="bandt">1 · Fetch, last 10 years</text>
+
+  <rect x="60" y="140" width="250" height="118" rx="6" class="done"/>
+  <text x="74" y="162" class="h">Infoscience</text>
+  <text x="74" y="182" class="mono">fetch_publications_since(…)</text>
+  <text x="74" y="198">→ publications, sponsorship,</text>
+  <text x="74" y="214">authors: name, sciper | None</text>
+  <text x="74" y="240" class="chg">change: keep author authority UUID</text>
+
+  <rect x="350" y="140" width="250" height="118" rx="6" class="todo"/>
+  <text x="364" y="162" class="h">OpenAlex: EPFL works</text>
+  <text x="364" y="182">new fetcher: institution = EPFL,</text>
+  <text x="364" y="198">date range, cursor paging</text>
+  <text x="364" y="214">→ works + authorships</text>
+  <text x="364" y="230">(author ID, name, ORCID)</text>
+
+  <rect x="640" y="140" width="250" height="118" rx="6" class="opt"/>
+  <text x="654" y="162" class="h">EPFL ORCID integration</text>
+  <text x="654" y="182" class="mono">fetch_orcid_map()</text>
+  <text x="654" y="198">→ sciper → ORCID</text>
+  <text x="654" y="222" class="note">fetched today; role in matching TBD</text>
+
+  <rect x="930" y="140" width="250" height="118" rx="6" class="done"/>
+  <text x="944" y="162" class="h">EPFL search-api (units)</text>
+  <text x="944" y="182" class="mono">fetch_units(acronyms)</text>
+  <text x="944" y="198">→ name, CF, path, head</text>
+  <text x="944" y="214">→ current members</text>
+  <text x="944" y="240" class="chg">change: use member list</text>
+
+  <path d="M185,140 Q620,80 1055,138" class="edge"/>
+  <text x="620" y="104" class="lbl" text-anchor="middle">sponsorship unit codes</text>
+
+  <!-- ===== 2 · Match publications ===== -->
+  <text x="56" y="322" class="bandt">2 · Match publications</text>
+
+  <path d="M270,258 V333" class="edge"/>
+  <path d="M475,258 V333" class="edge"/>
+
+  <rect x="60" y="335" width="540" height="86" rx="6" class="todo"/>
+  <text x="74" y="357" class="h">Fuzzy publication matcher <tspan font-weight="400">(Gaël)</tspan></text>
+  <text x="74" y="377">Infoscience record ⟷ OpenAlex work, not DOI-only</text>
+  <text x="74" y="393">→ merged publications carrying both author lists</text>
+  <text x="74" y="411" class="note">output format TBD, e.g. (Infoscience UUID, OpenAlex work ID, score)</text>
+
+  <!-- ORCID: possible input to setmatch -->
+  <path d="M660,258 V488" class="edge dash"/>
+  <text x="668" y="446" class="lbl">possible input</text>
+
+  <!-- ===== 3 · Disambiguate authors ===== -->
+  <text x="56" y="477" class="bandt">3 · Disambiguate authors</text>
+
+  <path d="M330,421 V488" class="edge"/>
+
+  <rect x="60" y="490" width="620" height="70" rx="6" class="todo"/>
+  <text x="74" y="512" class="h">setmatch: cluster author profiles</text>
+  <text x="74" y="532">Infoscience profiles (authority UUID, sciper?) + OpenAlex authors</text>
+  <text x="74" y="548">→ one cluster per person</text>
+
+  <path d="M370,560 V578" class="edge"/>
+
+  <rect x="60" y="580" width="620" height="95" rx="6" class="todo"/>
+  <text x="74" y="602" class="h">Keep sciper-anchored clusters</text>
+  <text x="74" y="620">≥ 1 Infoscience profile with a sciper → keep every profile in the cluster</text>
+  <!-- example cluster -->
+  <rect x="74"  y="630" width="78" height="18" rx="9" class="chipS"/><text x="113" y="643" class="chipt" text-anchor="middle">IS · sciper</text>
+  <rect x="158" y="630" width="96" height="18" rx="9" class="chipI"/><text x="206" y="643" class="chipt" text-anchor="middle">IS · no sciper</text>
+  <rect x="260" y="630" width="34" height="18" rx="9" class="chipO"/><text x="277" y="643" class="chipt" text-anchor="middle">OA</text>
+  <rect x="300" y="630" width="34" height="18" rx="9" class="chipO"/><text x="317" y="643" class="chipt" text-anchor="middle">OA</text>
+  <rect x="340" y="630" width="34" height="18" rx="9" class="chipO"/><text x="357" y="643" class="chipt" text-anchor="middle">OA</text>
+  <text x="384" y="643">→ all 5 kept</text>
+  <text x="74" y="666" class="note">no sciper anywhere in the cluster → dropped</text>
+
+  <rect x="730" y="580" width="390" height="95" rx="6" class="opt"/>
+  <text x="744" y="602" class="h">Open questions</text>
+  <text x="744" y="622">• cluster containing two scipers?</text>
+  <text x="744" y="640">• one wrong link can pull in a namesake,</text>
+  <text x="744" y="656">  and step 4 then fetches their whole history</text>
+
+  <!-- units travel down the right edge -->
+  <path d="M1150,258 V963" class="edge"/>
+  <text x="1140" y="702" class="lbl" text-anchor="end">unit details + current members</text>
+
+  <!-- ===== 4 · Expand ===== -->
+  <text x="56" y="732" class="bandt">4 · Expand to full history</text>
+
+  <path d="M300,675 V743" class="edge"/>
+  <path d="M585,675 V743" class="edge"/>
+
+  <rect x="60" y="745" width="330" height="80" rx="6" class="todo"/>
+  <text x="74" y="767" class="h">OpenAlex works by author ID</text>
+  <text x="74" y="787">batches of ≤ 100 IDs, no date cutoff</text>
+  <text x="74" y="807" class="note">generalizes fetch_works_by_author (1 ID)</text>
+
+  <rect x="420" y="745" width="330" height="80" rx="6" class="todo"/>
+  <text x="434" y="767" class="h">Infoscience pubs by person UUID</text>
+  <text x="434" y="787">new fetcher, no date cutoff</text>
+  <text x="434" y="807" class="note">covers profiles without a sciper too</text>
+
+  <path d="M225,825 V843" class="edge"/>
+  <path d="M585,825 V843" class="edge"/>
+
+  <rect x="60" y="845" width="690" height="50" rx="6" class="opt"/>
+  <text x="74" y="866" class="h">Fuzzy matcher, 2nd pass <tspan font-weight="400">(optional)</tspan></text>
+  <text x="74" y="884">merge duplicates among the newly fetched works</text>
+
+  <text x="780" y="770" class="note">Open: run setmatch again? Co-authors who only</text>
+  <text x="780" y="786" class="note">appear in the new works are not kept anyway.</text>
+
+  <!-- ===== 5 · Transform ===== -->
+  <text x="56" y="952" class="bandt">5 · Transform → models</text>
+
+  <path d="M300,895 V963" class="edge"/>
+  <path d="M600,895 V963" class="edge"/>
+
+  <rect x="60" y="965" width="320" height="112" rx="6" class="todo"/>
+  <text x="74" y="987" class="h">Publication</text>
+  <text x="74" y="1007">Infoscience and/or OpenAlex record</text>
+  <text x="74" y="1023">authors → kept profiles (sciper)</text>
+  <text x="74" y="1039">units: Infoscience as-is, else empty</text>
+  <text x="74" y="1057" class="mono">build_text()</text>
+
+  <rect x="430" y="965" width="340" height="112" rx="6" class="todo"/>
+  <text x="444" y="987" class="h">Professor <tspan font-weight="400">(all researchers)</tspan></text>
+  <text x="444" y="1007">one per kept cluster, keyed by sciper</text>
+  <text x="444" y="1023">units ← search-api current members</text>
+  <text x="444" y="1039" class="note">is_professor: source TBD</text>
+  <text x="444" y="1057" class="mono">build_text()</text>
+
+  <rect x="820" y="965" width="360" height="112" rx="6" class="todo"/>
+  <text x="834" y="987" class="h">Unit</text>
+  <text x="834" y="1007">one per sponsorship acronym → CF</text>
+  <text x="834" y="1023">+ name, path from search-api</text>
+  <text x="834" y="1039" class="note">pub→unit and researcher→unit may differ</text>
+  <text x="834" y="1057" class="mono">build_text()</text>
+
+  <path d="M220,1077 V1105 M600,1077 V1105 M1000,1077 V1105 M220,1105 H1000" class="bus"/>
+  <path d="M310,1105 V1138" class="edge"/>
+
+  <!-- ===== 6 · Index ===== -->
+  <text x="56" y="1137" class="bandt">6 · Index</text>
+
+  <rect x="200" y="1140" width="260" height="60" rx="6" class="done"/>
+  <text x="214" y="1164" class="mono">index_documents()</text>
+  <text x="214" y="1184">Publication, Professor, Unit</text>
+
+  <path d="M460,1170 H518" class="edge"/>
+
+  <rect x="520" y="1140" width="280" height="60" rx="6" class="done"/>
+  <text x="534" y="1164" class="h">OpenSearch shared index</text>
+  <text x="534" y="1184" class="mono">EDI_OPENSEARCH_INDEX_NAME</text>
+
+  <path d="M800,1170 H858" class="edge"/>
+
+  <rect x="860" y="1140" width="300" height="60" rx="6" class="done"/>
+  <text x="874" y="1164" class="h">nlp-ingest-pipeline</text>
+  <text x="874" y="1184">embeds text → 4096-d knn_vector</text>
+</svg>
