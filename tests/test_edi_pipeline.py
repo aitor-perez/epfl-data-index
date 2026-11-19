@@ -417,3 +417,47 @@ def test_rcp_judge_only_when_configured(monkeypatch):
     judge = authors.rcp_judge()
     assert isinstance(judge, authors.setmatch.OpenAICompatibleJudge)
     assert judge.request_options == {"reasoning_effort": config.JUDGE_REASONING_EFFORT}
+
+
+# --- pipeline steps ----------------------------------------------------------
+
+def test_load_sources_and_match(monkeypatch):
+    from edi_pipeline import pipeline
+
+    def raw_item(uuid, doi, title):
+        item = _item([{"value": "Bierlaire, Michel", "authority": UUID_A}])
+        item["uuid"] = uuid
+        item["metadata"]["dc.identifier.doi"] = [{"value": doi}]
+        item["metadata"]["dc.title"] = [{"value": title}]
+        item["metadata"]["dc.date.issued"] = [{"value": "2025-03"}]
+        return item
+
+    def work(wid, doi, title):
+        w = _oa_work(wid, [("A1", "Michel Bierlaire", None, None)])
+        w.update(doi=doi, title=title, publication_year=2025, abstract_inverted_index={"big": [0]})
+        w["authorships"][0]["institutions"] = [{"id": "I1", "lineage": ["I1"]}]
+        return w
+
+    asked = {}
+    monkeypatch.setattr(pipeline, "download_infoscience", lambda **kw: iter([
+        raw_item("p1", "10.1234/tagged", "Tagged paper"), raw_item("p2", "10.1234/untagged", "Untagged paper"),
+        raw_item("p1", "10.1234/tagged", "Tagged paper"),  # the same record twice
+    ]))
+    monkeypatch.setattr(pipeline, "download_openalex_epfl", lambda **kw: iter([work("W1", "https://doi.org/10.1234/TAGGED", "Tagged paper")]))
+
+    def by_doi(missing, **kw):
+        asked.update(missing)
+        return iter([work("W2", "https://doi.org/10.1234/untagged", "Untagged paper")])
+
+    monkeypatch.setattr(pipeline, "download_openalex_by_doi", by_doi)
+    publications, works = pipeline.load_sources(since=2025)
+    assert list(publications) == ["p1", "p2"]
+    assert asked == {2025: {"10.1234/untagged"}}  # only the DOI the EPFL download lacks
+    assert sorted(works) == ["https://openalex.org/W1", "https://openalex.org/W2"]
+    slim = works["https://openalex.org/W1"]
+    assert "abstract_inverted_index" not in slim and "institutions" not in slim["authorships"][0]
+
+    matches, duplicates = pipeline.match_publications(publications, works)
+    assert sorted((p["id"], w["id"]) for p, w, *_ in matches) == [
+        ("p1", "https://openalex.org/W1"), ("p2", "https://openalex.org/W2")]
+    assert duplicates == []
