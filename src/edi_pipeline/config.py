@@ -32,7 +32,11 @@ RETRY_AFTER_MARGIN_SECONDS = 5
 
 # Free API key from https://openalex.org/settings/api. Without it, requests
 # share the small per-IP daily budget.
-OPENALEX_API_KEY = os.getenv("EDI_PIPELINE_OPENALEX_API_KEY") or os.getenv("API_KEY_OPENALEX")
+OPENALEX_API_KEY = (
+    os.getenv("EDI_PIPELINE_OPENALEX_API_KEY")
+    or os.getenv("OPENALEX_API_KEY")
+    or os.getenv("API_KEY_OPENALEX")
+)
 
 # Publication types fetched from OpenAlex (profdb parity).
 OPENALEX_TYPES = "article|book|book-chapter"

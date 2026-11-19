@@ -259,3 +259,20 @@ def test_retry_after_header_is_obeyed(monkeypatch):
     assert http_client.get_json("https://example.org") == {"ok": True}
     # header obeyed (+ margin), then the configured delay for a refusal without header, then the polite pause
     assert waits == [905, http_client.WAIT_ON_RETRY[1], http_client.POLITE_DELAY_SECONDS]
+
+
+# --- publication matcher inputs ----------------------------------------------
+
+def test_matcher_takes_pipeline_records_directly():
+    from edi_pipeline.merge import publications as merge
+
+    pub = parse_publication(_item([{"value": "Li, Wei", "authority": UUID_A}]))
+    pub["doi"] = "10.1234/abc"  # the matcher only accepts realistic DOIs (10.<4+ digits>/...)
+    same_doi = _work("W1", 1, doi="https://doi.org/10.1234/ABC")
+    other = _work("W2", 1, doi="https://doi.org/10.5678/zzz")
+    infoscience_records = merge.by_id([merge.infoscience_record(pub)])
+    openalex_records = merge.by_id(merge.openalex_record(w) for w in (same_doi, other, same_doi))
+    assert list(openalex_records) == ["https://openalex.org/W1", "https://openalex.org/W2"]
+    matches, duplicates = merge.match(infoscience_records, openalex_records)
+    assert [(p["id"], w["id"], method) for p, w, method, _ in matches] == [("pub-1", "https://openalex.org/W1", "doi")]
+    assert duplicates == []

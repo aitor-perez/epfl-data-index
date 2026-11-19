@@ -1,8 +1,8 @@
 """Reconcile Infoscience and OpenAlex publications: find the records that describe the same work.
 
-Input: the records written by scripts/reconcile_publications.py, one JSON object per line
-(Infoscience records as returned by fetch.infoscience.parse_publication, OpenAlex works as
-returned by fetch.openalex.fetch_epfl_works).
+Input: the pipeline's own records, with no intermediate file. `infoscience_record` takes a
+publication from fetch.infoscience.parse_publication, `openalex_record` a raw OpenAlex work,
+and `by_id` gathers them into the {id: record} dicts that `match` compares.
 
 Two records are matched when
   1. they have the same DOI                                 -> confidence 1
@@ -22,11 +22,11 @@ from __future__ import annotations
 
 import csv
 import html
-import json
 import re
 import unicodedata
 from collections import Counter, defaultdict
 from pathlib import Path
+from typing import Iterable
 from urllib.parse import unquote
 
 MAX_TITLE_USES = 5      # a title carried by more records than this ("Editorial", "Introduction") is never matched on
@@ -91,24 +91,31 @@ def author_score(names_a: list[str], names_b: list[str]) -> float:
     return common / (pieces_a.total() + pieces_b.total() - common)
 
 
-def load(path: Path, source: str) -> dict[str, dict]:
-    """Read a JSONL file into {id: record}, DOI and title ready to compare. A repeated id is kept once."""
-    records: dict[str, dict] = {}
-    with open(path, encoding="utf-8") as lines:
-        for line in lines:
-            raw = json.loads(line)
-            if source == "infoscience":
-                key, year, kind = raw["uuid"], raw.get("year"), None
-                authors = [author["name"] for author in raw.get("authors", [])]
-            else:
-                key, year, kind = raw["id"], raw.get("publication_year"), raw.get("type")
-                authors = [a.get("raw_author_name") or (a.get("author") or {}).get("display_name") or ""
-                           for a in raw.get("authorships", [])]
-            if key not in records:
-                records[key] = {"id": key, "doi": norm_doi(raw.get("doi")), "title": norm_title(raw.get("title")),
-                                "raw_title": raw.get("title"), "year": int(year) if year else None, "type": kind,
-                                "authors": authors}
-    return records
+def _record(key: str, doi: str | None, title: str | None, year, kind: str | None, authors: list[str]) -> dict:
+    return {"id": key, "doi": norm_doi(doi), "title": norm_title(title), "raw_title": title,
+            "year": int(year) if year else None, "type": kind, "authors": authors}
+
+
+def infoscience_record(publication: dict) -> dict:
+    """Matcher record of one Infoscience publication, as returned by fetch.infoscience.parse_publication."""
+    return _record(publication["uuid"], publication.get("doi"), publication.get("title"), publication.get("year"),
+                   None, [author["name"] for author in publication.get("authors", [])])
+
+
+def openalex_record(work: dict) -> dict:
+    """Matcher record of one raw OpenAlex work, as yielded by the fetch.openalex fetchers."""
+    authors = [a.get("raw_author_name") or (a.get("author") or {}).get("display_name") or ""
+               for a in work.get("authorships", [])]
+    return _record(work["id"], work.get("doi"), work.get("title"), work.get("publication_year"),
+                   work.get("type"), authors)
+
+
+def by_id(records: Iterable[dict]) -> dict[str, dict]:
+    """{id: record}, the input of `match`. A repeated id is kept once."""
+    indexed: dict[str, dict] = {}
+    for record in records:
+        indexed.setdefault(record["id"], record)
+    return indexed
 
 
 Pair = tuple[dict, dict, str, float]  # (Infoscience record, OpenAlex record, method, confidence)

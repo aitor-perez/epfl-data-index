@@ -5,15 +5,16 @@ This finds the Infoscience records and the OpenAlex works that describe the same
 ## How it works
 
 ```bash
-python scripts/reconcile_publications.py                  # download (fresh) and match, into data/
-python scripts/reconcile_publications.py --skip-download  # match the files already downloaded (~10 s)
+python scripts/reconcile_publications.py               # download and match, results into data/
+python scripts/reconcile_publications.py --since 2024  # a shorter window (OpenAlex then starts in 2023)
+python scripts/reconcile_publications.py --refresh     # download every year again, ignoring the cache
 ```
 
 - **Download.** It uses `fetch.infoscience` and `fetch.openalex.fetch_epfl_works`:
-  - Infoscience: every EPFL publication dated 2016 or later.
-  - OpenAlex: every EPFL-affiliated work dated 2015 or later.
+  - Infoscience: every EPFL publication dated `--since` or later (2016 by default during 2026).
+  - OpenAlex: every EPFL-affiliated work dated one year earlier or later.
 
-  OpenAlex starts one year earlier because a work Infoscience dates 2016 often has an OpenAlex date in 2015 (online-first, preprint). Both sources are capped at today, so records with a future date (forthcoming publications) are left out. The records go to `data/infoscience.jsonl` and `data/openalex.jsonl`. Nothing is cached: every download fetches fresh data, and `--skip-download` re-matches the files already in `data/`. OpenAlex works come with their full author lists: works cut at 100 authors are re-fetched one by one. Set `EDI_PIPELINE_OPENALEX_API_KEY` in `.env`: without it, OpenAlex requests share a small per-IP daily budget.
+  OpenAlex starts one year earlier because a work Infoscience dates 2016 often has an OpenAlex date in 2015 (online-first, preprint). Both sources are capped at today, so records with a future date (forthcoming publications) are left out. Downloads go through the yearly cache of `edi_pipeline.download`: closed years are read from `data/cache/` (and downloaded again after 30 days), and the current year is always fetched. The two sources are downloaded side by side and passed straight to the matcher, with no intermediate file. OpenAlex works come with their full author lists: works cut at 100 authors are re-fetched one by one. Set `EDI_PIPELINE_OPENALEX_API_KEY` in `.env`: without it, OpenAlex requests share a small per-IP daily budget.
 - **Match.** `merge/publications.py` pairs the records in two steps:
   1. **Same DOI**: confidence 1.
   2. **Same title and agreeing authors**, among the records still unmatched. The confidence is the author score, from 0 to 1. Titles carried by more than 5 records ("Editorial", "Introduction") are skipped.

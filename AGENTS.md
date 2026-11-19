@@ -52,7 +52,7 @@ EDI_OPENSEARCH_PASSWORD=your_password
 |----------|---------|-------------|
 | `EDI_OPENSEARCH_EMBEDDING_MODEL_ID` | `77D-56ABnEX0QP_uqWw7` | OpenSearch text-embedding model ID. |
 | `EDI_OPENSEARCH_INDEX_NAME` | `shared_test_260928` | Default index name used when `index_name` is not passed explicitly. |
-| `EDI_PIPELINE_OPENALEX_API_KEY` or `API_KEY_OPENALEX` | — | OpenAlex API key used by `edi_pipeline` (`edi_pipeline/config.py`). |
+| `EDI_PIPELINE_OPENALEX_API_KEY`, `OPENALEX_API_KEY` or `API_KEY_OPENALEX` | — | OpenAlex API key used by `edi_pipeline` (`edi_pipeline/config.py`). |
 | `EDI_PIPELINE_CACHE_DIR` | `data/cache` | Folder of the yearly download cache (`edi_pipeline/download.py`). |
 | `INFOSCIENCE_TOKEN` | — | Optional Infoscience bearer token; anonymous access already covers public metadata. |
 
@@ -79,7 +79,7 @@ Fetch layer for publications and researchers from live sources (no source CSVs),
 - **fetch/openalex.py** — Works with an EPFL-affiliated authorship since a date (`fetch_epfl_works`: `authorships.institutions.lineage:I5124864`, so EPFL's child institutions are included, all types by default, cursor paging at 200/page, yields lazily). Also works by DOI (OR-filter chunks of ≤100; the field name is written once, `doi:a|b`), works since a date by batches of ≤100 author IDs, with no EPFL affiliation required (`fetch_works_by_authors`, each work yielded once), author details, and `parse_work` (normalized DOI, rebuilt abstract, authors with `raw_author_name`, ORCID and an `is_epfl` flag that follows the same lineage rule). List endpoints truncate `authorships` at 100, so any work returned with 100 is re-fetched on its own to get the full author list (`complete_authorships`).
 - **fetch/units.py** — Unit lookup by acronym via `https://search-api.epfl.ch/api/unit` (name, CF, path, head). Sponsorship unit codes stay canonical for publication attribution. The API's current member list is unused today; it is planned as the source of the researcher–unit relation (see *Planned pipeline*).
 - **fetch/orcid.py** — sciper → ORCID map from EPFL's ORCID integration service (fetched, not yet consumed).
-- **merge/publications.py** — One-to-one matching of Infoscience records and OpenAlex works: same DOI first, then same normalized title with agreeing authors (surname trigram overlap). Same-DOI pairs left out are reported as duplicates. Run by `scripts/reconcile_publications.py`, which downloads both sources (directly through the fetchers, without the yearly cache) into `data/` and writes `matches.csv` and `duplicates.csv`. Method and results: `src/edi_pipeline/docs/publication-reconciliation.md`.
+- **merge/publications.py** — One-to-one matching of Infoscience records and OpenAlex works: same DOI first, then same normalized title with agreeing authors (surname trigram overlap). Same-DOI pairs left out are reported as duplicates. It takes the pipeline's records directly (`infoscience_record`, `openalex_record`, `by_id`), with no intermediate file. Run by `scripts/reconcile_publications.py`, which downloads both sources side by side through the yearly cache (`--since YEAR`, `--refresh`) and writes `data/matches.csv` and `data/duplicates.csv`. Method and results: `src/edi_pipeline/docs/publication-reconciliation.md`.
 
 Researchers are *not* fetched as profiles: they are derived from publication authors downstream, so a researcher appears only if they authored a publication since the cutoff date.
 

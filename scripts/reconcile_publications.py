@@ -1,49 +1,56 @@
 """Reconcile EPFL publications between Infoscience and OpenAlex.
 
-    python scripts/reconcile_publications.py [--data data] [--skip-download]
+    python scripts/reconcile_publications.py [--since 2016] [--data data] [--refresh]
 
-1. Download (fresh every time; use --skip-download to re-match the files already in <data>)
-   - Infoscience: every EPFL publication dated 2016 or later
-   - OpenAlex: every EPFL-affiliated work dated 2015 or later. One year earlier than
-     Infoscience, because a work Infoscience dates 2016 often has an OpenAlex date in
+1. Download, through the yearly cache of edi_pipeline.download (closed years are read from
+   disk, the current year is always fetched; --refresh downloads every year again)
+   - Infoscience: every EPFL publication dated --since or later (default: the pipeline's
+     window, 10 calendar years before the current one)
+   - OpenAlex: every EPFL-affiliated work dated one year earlier or later. One year earlier
+     than Infoscience, because a work Infoscience dates 2016 often has an OpenAlex date in
      2015 (online-first, preprint). Both sources are capped at today, so records with a
      future date (forthcoming publications) are left out.
-   -> <data>/infoscience.jsonl, <data>/openalex.jsonl
+   The two sources are downloaded side by side and go straight to the matcher: no
+   intermediate file.
 2. Match (edi_pipeline.merge.publications)
    -> <data>/matches.csv, <data>/duplicates.csv
 
 Method and results: src/edi_pipeline/docs/publication-reconciliation.md
 """
 import argparse
-import json
 import logging
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
+from datetime import date
 from pathlib import Path
 
 from dotenv import load_dotenv
 
 load_dotenv()  # before edi_pipeline: its config reads env vars at import time
 
-from edi_pipeline.fetch.infoscience import fetch_publications_since, parse_publication
-from edi_pipeline.fetch.openalex import fetch_epfl_works
-from edi_pipeline.merge.publications import load, match, write_results
-
-INFOSCIENCE_SINCE = "2016"
-OPENALEX_SINCE = "2015-01-01"
+from edi_pipeline.download import download_infoscience, download_openalex_epfl, window_years
+from edi_pipeline.fetch.infoscience import parse_publication
+from edi_pipeline.merge.publications import by_id, infoscience_record, match, openalex_record, write_results
 
 
-def download(data: Path) -> None:
-    infoscience = [parse_publication(item) for item in fetch_publications_since(INFOSCIENCE_SINCE)]
-    openalex = list(fetch_epfl_works(OPENALEX_SINCE))
-    for name, records in (("infoscience", infoscience), ("openalex", openalex)):
-        path = data / f"{name}.jsonl"
-        path.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in records), encoding="utf-8")
-        print(f"{name}: {len(records)} records -> {path}")
+def download(since: int, refresh: bool) -> tuple[dict[str, dict], dict[str, dict]]:
+    """Matcher records of both sources, {id: record} each, downloaded side by side."""
+    this_year = date.today().year
+
+    def infoscience() -> dict[str, dict]:
+        items = download_infoscience(years=range(since, this_year + 1), refresh=refresh)
+        return by_id(infoscience_record(parse_publication(item)) for item in items)
+
+    def openalex() -> dict[str, dict]:
+        works = download_openalex_epfl(years=range(since - 1, this_year + 1), refresh=refresh)
+        return by_id(openalex_record(work) for work in works)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = pool.submit(infoscience), pool.submit(openalex)
+        return futures[0].result(), futures[1].result()
 
 
-def reconcile(data: Path) -> None:
-    infoscience = load(data / "infoscience.jsonl", "infoscience")
-    openalex = load(data / "openalex.jsonl", "openalex")
+def reconcile(data: Path, infoscience: dict[str, dict], openalex: dict[str, dict]) -> None:
     matches, duplicates = match(infoscience, openalex)
     write_results(data, matches, duplicates)
 
@@ -58,15 +65,16 @@ def reconcile(data: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--data", type=Path, default=Path("data"), help="folder for downloads and results")
-    parser.add_argument("--skip-download", action="store_true", help="match the JSONL files already in --data")
+    parser.add_argument("--since", type=int, default=window_years()[0],
+                        help="first Infoscience year (OpenAlex starts one year earlier); default: the pipeline's window")
+    parser.add_argument("--data", type=Path, default=Path("data"), help="folder for the result files")
+    parser.add_argument("--refresh", action="store_true", help="download every year again, ignoring the yearly cache")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
     args.data.mkdir(parents=True, exist_ok=True)
-    if not args.skip_download:
-        download(args.data)
-    reconcile(args.data)
+    infoscience, openalex = download(args.since, args.refresh)
+    reconcile(args.data, infoscience, openalex)
 
 
 if __name__ == "__main__":
