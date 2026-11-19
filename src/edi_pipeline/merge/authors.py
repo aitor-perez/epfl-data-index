@@ -164,7 +164,8 @@ def rcp_judge(cache_path: str | None = None) -> setmatch.OpenAICompatibleJudge |
     client = OpenAI(
         base_url=config.RCP_BASE_URL, api_key=config.RCP_API_KEY or "EMPTY", timeout=120.0, max_retries=2)
     return setmatch.OpenAICompatibleJudge(
-        client, config.JUDGE_MODEL, request_options=config.JUDGE_REQUEST_OPTIONS, cache_path=cache_path)
+        client, config.JUDGE_MODEL,
+        request_options={"reasoning_effort": config.JUDGE_REASONING_EFFORT}, cache_path=cache_path)
 
 
 def resolve_authors(

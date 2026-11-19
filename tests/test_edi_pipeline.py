@@ -414,4 +414,6 @@ def test_rcp_judge_only_when_configured(monkeypatch):
     monkeypatch.setattr(config, "RCP_BASE_URL", None)
     assert authors.rcp_judge() is None
     monkeypatch.setattr(config, "RCP_BASE_URL", "http://localhost:9/v1")
-    assert isinstance(authors.rcp_judge(), authors.setmatch.OpenAICompatibleJudge)
+    judge = authors.rcp_judge()
+    assert isinstance(judge, authors.setmatch.OpenAICompatibleJudge)
+    assert judge.request_options == {"reasoning_effort": config.JUDGE_REASONING_EFFORT}

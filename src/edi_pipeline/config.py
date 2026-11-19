@@ -44,21 +44,10 @@ OPENALEX_API_KEY = (
 # settings, named after the service. No base URL means no judge.
 RCP_BASE_URL = os.getenv("RCP_BASE_URL")
 RCP_API_KEY = os.getenv("RCP_API_KEY")
-# The judge's model and its sampling preset go together and are defined here,
-# not in the environment: to try another model, change both. On RCP (vLLM),
-# reasoning is switched off server-side through chat_template_kwargs.
-JUDGE_MODEL = "Qwen/Qwen3.6-35B-A3B"
-JUDGE_REQUEST_OPTIONS = {
-    "temperature": 0.7,
-    "top_p": 0.8,
-    "presence_penalty": 1.5,
-    "extra_body": {
-        "top_k": 20,
-        "min_p": 0.0,
-        "repetition_penalty": 1.0,
-        "chat_template_kwargs": {"enable_thinking": False},
-    },
-}
+# The judge's model and how much it reasons before answering are defined here
+# and not in the environment.
+JUDGE_MODEL = "epfl-aiaas/small"
+JUDGE_REASONING_EFFORT = "none"
 
 # Publication types fetched from OpenAlex (profdb parity).
 OPENALEX_TYPES = "article|book|book-chapter"
