@@ -109,28 +109,16 @@ Scope assumptions: researchers are people with publications in Infoscience, and 
 
 The two relations mean different things: where the work was attributed versus where the person is now. They are not expected to agree and must not be reconciled with each other.
 
-#### What the two sources cover (findings of 2026-11-19)
+#### What the two sources cover
 
-Measured on Infoscience 2024–2025 (13,788 records) against OpenAlex works affiliated with EPFL, 2023–2025, with the first version of the matcher. Before the DOI lookup was added, 70% of the Infoscience records and 74% of the 2024–2025 OpenAlex works had a match. (The first full run reported 52.7% for OpenAlex: its extra year, 2023, has no Infoscience counterpart in a 2024 run.)
+With the first version of the matcher, on 2024–2026, about 82% of the Infoscience records find their OpenAlex work, almost all of them by DOI.
 
-Why 4,103 Infoscience records had no match:
-
-| Reason | Records | Mostly |
-|---|---|---|
-| No DOI in Infoscience | 1,666 | master theses (340), conference presentations (190), conference papers (188), patents (125) |
-| DOI unknown to OpenAlex | 1,336 | doctoral theses (789), preprints (235), conference papers (97), datasets (77) |
-| In OpenAlex under the same DOI, but not tagged EPFL | 1,082 | journal articles (about 630), conference papers (about 220) |
-| Dated outside the window, or duplicates | 19 | |
-
-- The first two rows are a difference of coverage: Infoscience holds work types that OpenAlex does not have.
-- The third row was a gap in the fetch, now closed by the DOI lookup. OpenAlex lists 652 of these works with affiliations of which none is EPFL, and 430 with no affiliation at all. They are EPFL papers: 1,076 of the 1,082 have an author with a sciper in Infoscience. Recovering them brings the Infoscience match rate to about 78%, and gives author disambiguation the OpenAlex profiles of those authors.
-
-Why 3,366 OpenAlex works (2024–2025) had no match:
-
-- Types Infoscience rarely holds: preprints (962), datasets (414), peer reviews (164), errata (61); many are arXiv or Zenodo records.
-- 1,167 are articles, reviews or conference papers with a publisher DOI that is absent from Infoscience 2024–2025. In 710 of them a single author is tagged EPFL. Whether some are in Infoscience under another year was not checked.
-
-The matcher itself misses little: among the unmatched records of both sides, 10 pairs share a title (7 rejected on the author score, e.g. "Fei, Deng" against "Deng, Fei", or a name in Cyrillic) and 25 pairs have near-identical titles with agreeing authors but different DOIs (a preprint and its published article, a dataset and its paper). That is about 35 candidates for some 9,700 pairs. The near-title search only compared titles sharing their first or last 30 characters.
+- **It depends on the work type.** Research and review articles match at 97–99%, conference papers at 88%, preprints and book chapters around 73%, datasets, doctoral theses and conference presentations below 40%, master theses and patents not at all.
+- **Unmatched Infoscience records are a difference of coverage.** About 60% of them have no DOI (student work, presentations, patents), and the rest have a DOI that OpenAlex does not know (mostly doctoral theses, preprints, datasets).
+- **OpenAlex's EPFL affiliation is incomplete.** About 9% of the Infoscience records are in OpenAlex under the same DOI without being tagged EPFL: half have no affiliation at all, half have affiliations of which none is EPFL. The second OpenAlex pass, by DOI, recovers them; without it the match rate is about 73%.
+- **About 70–77% of the OpenAlex works affiliated with EPFL have an Infoscience record**, for the years Infoscience has had time to fill. The others are mostly preprints, datasets, peer reviews and software, which Infoscience rarely holds, plus a number of articles and conference papers that are not in Infoscience, often with a single author tagged EPFL.
+- **The matcher misses little**: a few dozen plausible pairs for some 10,000 matched. Typical misses are a preprint and its published article under different DOIs, and author names written in a different order or script.
+- **A download can lose a few records.** Infoscience is paged by page number over a live index: if the index changes during a download, a few records come twice and as many are skipped. The record count still equals the announced total.
 
 Open questions:
 
