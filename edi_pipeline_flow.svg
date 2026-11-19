@@ -70,7 +70,7 @@
   <text x="944" y="182" class="mono">fetch_units(acronyms)</text>
   <text x="944" y="198">→ name, CF, path, head</text>
   <text x="944" y="214">→ current members</text>
-  <text x="944" y="240" class="chg">change: use member list</text>
+  <text x="944" y="236" class="note">exact lookup: ?acro=</text>
 
   <path d="M185,140 Q620,80 1055,138" class="edge"/>
   <text x="620" y="104" class="lbl" text-anchor="middle">sponsorship unit codes</text>

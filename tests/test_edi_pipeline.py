@@ -313,3 +313,27 @@ def test_client_errors_are_not_retried(monkeypatch):
     except RuntimeError as error:
         assert "HTTP 400" in str(error)
     assert len(calls) == 1 and waits == []
+
+
+# --- units -------------------------------------------------------------------
+
+def test_unit_members_and_researcher_links(monkeypatch):
+    from edi_pipeline.fetch import units
+
+    full = {"code": 10659, "acronym": "LAB-A", "name": "Lab A", "path": [{"acronym": "EPFL"}, {"acronym": "LAB-A"}],
+            "head": {"sciper": "100001", "name": "Head", "firstname": "Ann", "email": "x"},
+            "people": [{"sciper": "100001", "name": "Head", "firstname": "Ann", "position": "Full Professor", "email": "x"},
+                       {"sciper": "100002", "name": "Admin", "firstname": "Bob", "position": "Administrative Assistant"}]}
+    faculty = {"code": 10000, "acronym": "FAC", "name": "Faculty", "path": [{"acronym": "EPFL"}, {"acronym": "FAC"}],
+               "subunits": [{"acronym": "LAB-A"}]}
+    answers = {"acro=LAB-A": full, "acro=FAC": faculty, "acro=GONE": {}}
+    monkeypatch.setattr(units, "get_json", lambda url: answers[url.split("?")[1]])
+    found = units.fetch_units(["LAB-A", "FAC", "GONE", "LAB-A"])
+    assert found["GONE"] is None  # renamed, closed, or not an EPFL unit
+    assert found["LAB-A"]["members"] == [
+        {"sciper": "100001", "firstname": "Ann", "lastname": "Head", "position": "Full Professor"},
+        {"sciper": "100002", "firstname": "Bob", "lastname": "Admin", "position": "Administrative Assistant"},
+    ]
+    assert found["FAC"]["members"] is None  # a larger unit comes without people
+    links = units.units_by_member(found, scipers=[100001, "999999"])
+    assert links == {"100001": [{"acronym": "LAB-A", "cf": "10659", "name": "Lab A", "position": "Full Professor"}]}
