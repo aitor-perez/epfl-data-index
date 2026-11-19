@@ -11,8 +11,8 @@ of the Infoscience team:
   filter: publications written before the author joined EPFL (e.g. the past
   work of recently hired professors) are wanted too. Downstream code can
   filter on `written_at == "EPFL"` if ever needed.
-- Page size 100 (the API maximum), polite delay between requests. No cache:
-  the pipeline always works on fresh data.
+- Page size 100 (the API maximum), polite delay between requests. No cache
+  at this level: `edi_pipeline.download` caches closed calendar years.
 - Labs are attributed via `dc.description.sponsorship`, which is traced on the
   record itself. Never `cris.virtual.department`: that virtual field is
   computed at request time from the author's *current* affiliation.
@@ -29,6 +29,15 @@ occur: no authority at all (an unlinked, typically external author), and a
 pending link of the form `will be referenced::SCIPER-ID::<sciper>`, where the
 sciper is known but no profile UUID exists yet.
 
+The scipers must be matched through the UUID, not by position. The help page
+says `cris.virtual.*` fields align with their parent field by `place`, but
+`cris.virtual.sciperId` aligns with `cris.virtualsource.sciperId` (always the
+same length and places), not with `dc.contributor.author`: it has one entry
+per linked person, in its own order, and also covers advisors and editors.
+Checked on 14,376 records (2026-11-19): through the UUID, each of 1,794
+profiles gets exactly one sciper and each sciper one profile; by position,
+794 of 1,648 profiles get several different scipers.
+
 Researchers are NOT fetched separately: they are derived from publication
 authors downstream, so a researcher only appears if they authored a
 publication since the cutoff date.
@@ -39,7 +48,7 @@ import logging
 import re
 import urllib.parse
 from datetime import date
-from typing import Any, Iterator
+from typing import Any, Iterable, Iterator
 
 from edi_pipeline.config import (
     INFOSCIENCE_BASE_URL,
@@ -119,8 +128,8 @@ def fetch_publications_since(
     `until` defaults to today, which leaves out forthcoming publications
     already deposited with a future issue date. EPFL-wide (root OrgUnit
     scope), newest first, retrospective deposits included. Use
-    `parse_publication` to extract fields and authors. For "at most 10 years
-    old", pass `fetch.since_years_ago(10)`.
+    `parse_publication` to extract fields and authors. For the pipeline's
+    10-year window, pass `fetch.window_start()`.
 
     Note: this selects by issue date. For incremental harvesting of *changed*
     records, the documented field is `lastModified` (updates + new deposits).
@@ -133,6 +142,26 @@ def fetch_publications_since(
         sort=PUB_SORT,
         max_records=max_records,
     )
+
+
+def publications_of(
+    publications: Iterable[dict[str, Any]],
+    authorities: Iterable[str] = (),
+    scipers: Iterable[str] = (),
+) -> Iterator[dict[str, Any]]:
+    """Keep the parsed publications with at least one author among the given profiles.
+
+    `publications` are `parse_publication` results; a profile is named by its
+    authority UUID, or by its sciper (which also catches authors whose link
+    is still pending and so have no UUID).
+    """
+    authorities, scipers = set(authorities), {str(sciper) for sciper in scipers}
+    for publication in publications:
+        if any(
+            (author["authority"] in authorities) or (author["sciper"] in scipers)
+            for author in publication["authors"]
+        ):
+            yield publication
 
 
 # ---------------------------------------------------------------------------

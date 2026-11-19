@@ -21,14 +21,13 @@ def normalize_doi(doi: object) -> str | None:
     return value.strip() or None
 
 
-def since_years_ago(years: int, today: date | None = None) -> str:
-    """ISO date `years` years before `today` (Feb 29 falls back to Feb 28).
+def window_start(years: int = 10, today: date | None = None) -> str:
+    """First day of the calendar year `years` years before the current one.
 
-    Used as the lower bound for "works at most N years old".
+    The pipeline works on whole calendar years: on 2026-11-19, `window_start(10)`
+    is "2016-01-01", so the window is 2016-2026, both included. Unlike a
+    sliding "today minus 10 years", the window only moves on 1 January, and
+    every year but the current one is closed.
     """
     today = today or date.today()
-    try:
-        start = today.replace(year=today.year - years)
-    except ValueError:  # Feb 29 in a non-leap target year
-        start = today.replace(year=today.year - years, day=28)
-    return start.isoformat()
+    return f"{today.year - years}-01-01"

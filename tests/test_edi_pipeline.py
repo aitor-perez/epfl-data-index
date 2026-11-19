@@ -2,7 +2,8 @@
 from datetime import date
 from urllib.parse import parse_qs, urlparse
 
-from edi_pipeline.fetch import normalize_doi, since_years_ago
+from edi_pipeline.fetch import normalize_doi, window_start
+from edi_pipeline import download
 from edi_pipeline.fetch import infoscience, openalex
 from edi_pipeline.fetch.infoscience import parse_publication
 
@@ -19,9 +20,10 @@ def test_normalize_doi():
     assert normalize_doi(None) is None
 
 
-def test_since_years_ago():
-    assert since_years_ago(10, today=date(2026, 11, 17)) == "2016-11-17"
-    assert since_years_ago(1, today=date(2028, 2, 29)) == "2027-02-28"
+def test_window_start():
+    assert window_start(today=date(2026, 11, 19)) == "2016-01-01"
+    assert window_start(today=date(2027, 1, 1)) == "2017-01-01"
+    assert window_start(3, today=date(2028, 2, 29)) == "2025-01-01"
 
 
 # --- Infoscience -------------------------------------------------------------
@@ -148,3 +150,112 @@ def test_parse_work():
     assert parsed["authors"][0]["name"] == "A. 0"
     assert parsed["authors"][0]["orcid"] == "0000-0000-0000-0001"
     assert [a["is_epfl"] for a in parsed["authors"]] == [False, True]
+
+
+# --- step 5: works by kept authors ----------------------------------------------------
+
+def test_works_by_authors_batches_and_dedups(monkeypatch):
+    filters = []
+
+    def fake_get_json(url, headers=None):
+        filters.append(parse_qs(urlparse(url).query)["filter"][0])
+        # W1 is shared by an author of each batch
+        results = [_work("W1", 1), _work(f"W{len(filters) + 1}", 1)]
+        return {"results": results, "meta": {"next_cursor": None}}
+
+    monkeypatch.setattr(openalex, "get_json", fake_get_json)
+    ids = [f"https://openalex.org/A{i:03d}" for i in range(150)]
+    works = list(openalex.fetch_works_by_authors(ids, since="2016-11-19"))
+    assert len(filters) == 2  # 150 authors -> 2 queries, not 150
+    assert filters[0].count("|") == 99 and filters[0].startswith("author.id:A000|A001")
+    assert filters[0].endswith(f",from_publication_date:2016-11-19,to_publication_date:{date.today().isoformat()}")
+    assert sorted(_w["id"].rsplit("/", 1)[-1] for _w in works) == ["W1", "W2", "W3"]
+
+
+def test_publications_of():
+    def pub(uuid, *authors):
+        return {"uuid": uuid, "authors": [{"name": "n", "sciper": s, "authority": a} for s, a in authors]}
+
+    pubs = [
+        pub("by-uuid", (None, UUID_B)),
+        pub("by-pending-sciper", ("365358", None)),
+        pub("other", ("999999", UUID_A), (None, None)),
+    ]
+    kept = infoscience.publications_of(pubs, authorities=[UUID_B], scipers=[365358])
+    assert [p["uuid"] for p in kept] == ["by-uuid", "by-pending-sciper"]
+
+
+# --- yearly download cache ---------------------------------------------------
+
+def _fake_source(calls):
+    def fetch_range(since, until):
+        calls.append((since, until))
+        return [{"id": f"{since[:4]}-{i}"} for i in range(2)]
+    return fetch_range
+
+
+def test_download_years_caches_closed_years_only(tmp_path):
+    today = date(2026, 11, 19)
+    calls = []
+    run = lambda **kw: list(download.download_years(
+        "src", _fake_source(calls), years=[2024, 2025, 2026, 2027], cache_dir=tmp_path, today=today, **kw))
+
+    first = run()
+    assert calls == [("2024-01-01", "2024-12-31"), ("2025-01-01", "2025-12-31"), ("2026-01-01", "2026-11-19")]
+    assert sorted(p.name for p in (tmp_path / "src").iterdir()) == ["2024.jsonl.gz", "2025.jsonl.gz"]
+
+    calls.clear()
+    assert run() == first  # same records, closed years now read from disk
+    assert calls == [("2026-01-01", "2026-11-19")]  # only the current year is fetched again
+
+    calls.clear()
+    run(refresh=True)
+    assert len(calls) == 3
+
+
+def test_download_years_refetches_stale_cache(tmp_path):
+    import os, time
+    calls = []
+    run = lambda: list(download.download_years(
+        "src", _fake_source(calls), years=[2025], cache_dir=tmp_path, max_age_days=30, today=date(2026, 11, 19)))
+    run()
+    old = time.time() - 31 * 86400
+    os.utime(tmp_path / "src" / "2025.jsonl.gz", (old, old))
+    run()
+    assert len(calls) == 2  # 31 days old -> downloaded again
+
+
+def test_interrupted_download_leaves_no_cache_file(tmp_path):
+    def failing(since, until):
+        yield {"id": 1}
+        raise RuntimeError("network down")
+
+    try:
+        list(download.download_years("src", failing, years=[2025], cache_dir=tmp_path, today=date(2026, 11, 19)))
+    except RuntimeError:
+        pass
+    assert list((tmp_path / "src").iterdir()) == []
+
+
+def test_window_years():
+    assert download.window_years(today=date(2026, 11, 19)) == list(range(2016, 2027))
+
+
+# --- HTTP retries ------------------------------------------------------------
+
+def test_retry_after_header_is_obeyed(monkeypatch):
+    from edi_pipeline import http_client
+
+    class Response:
+        def __init__(self, status, headers=None):
+            self.status_code, self.headers = status, headers or {}
+        def raise_for_status(self): pass
+        def json(self): return {"ok": True}
+
+    responses = [Response(429, {"Retry-After": "900"}), Response(429), Response(200)]
+    waits = []
+    monkeypatch.setattr(http_client.requests, "get", lambda *a, **k: responses.pop(0))
+    monkeypatch.setattr(http_client.time, "sleep", waits.append)
+    assert http_client.get_json("https://example.org") == {"ok": True}
+    # header obeyed (+ margin), then the configured delay for a refusal without header, then the polite pause
+    assert waits == [905, http_client.WAIT_ON_RETRY[1], http_client.POLITE_DELAY_SECONDS]

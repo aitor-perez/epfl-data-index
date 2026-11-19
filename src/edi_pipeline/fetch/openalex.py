@@ -17,7 +17,6 @@ from edi_pipeline.config import (
     OPENALEX_BASE_URL,
     OPENALEX_CHUNK_SIZE,
     OPENALEX_PER_PAGE,
-    OPENALEX_TYPES,
 )
 from edi_pipeline.fetch import normalize_doi
 from edi_pipeline.http_client import get_json
@@ -100,8 +99,8 @@ def fetch_epfl_works(
     """Yield works with an EPFL-affiliated authorship, published between `since` and `until`.
 
     `since`/`until` are "YYYY-MM-DD"; `until` defaults to today, which leaves
-    out works with a future publication date. For "at most 10 years old",
-    pass `fetch.since_years_ago(10)`. EPFL is matched through its OpenAlex
+    out works with a future publication date. For the pipeline's 10-year
+    window, pass `fetch.window_start()`. EPFL is matched through its OpenAlex
     lineage (`authorships.institutions.lineage`), so works affiliated only with
     one of EPFL's child institutions are included too. `types` is an OpenAlex
     type filter ("article|book"); None keeps all types, the closest match to
@@ -147,15 +146,36 @@ def fetch_works_by_dois(dois: list[str]) -> dict[str, dict[str, Any] | None]:
     return works
 
 
-def fetch_works_by_author(openalex_id: str, year_min: int, year_max: int) -> list[dict[str, Any]]:
-    """All OpenAlex works of one author in the year range."""
-    works = list(_iter_works(
-        f"author.id:{openalex_id},"
-        f"publication_year:{year_min}-{year_max},"
-        f"type:{OPENALEX_TYPES}"
-    ))
-    logger.info("openalex works by author %s: %d works", openalex_id, len(works))
-    return works
+def fetch_works_by_authors(
+    openalex_ids: list[str],
+    since: str,
+    until: str | None = None,
+    types: str | None = None,
+) -> Iterator[dict[str, Any]]:
+    """Yield every work since `since` involving any of the given OpenAlex authors, each work once.
+
+    Unlike `fetch_epfl_works`, the works need no EPFL affiliation: this is
+    what brings in a researcher's publications from before they joined EPFL.
+    Same date window as the other fetches: `since`/`until` are "YYYY-MM-DD",
+    `until` defaults to today, and the pipeline's 10-year window starts at
+    `fetch.window_start()`. Authors are queried in batches of
+    OPENALEX_CHUNK_SIZE (the OR-filter cap), so 100 authors cost one paged
+    query instead of 100. A work shared by authors of different batches is
+    yielded only the first time. `types` is an OpenAlex type filter
+    ("article|book"); None keeps all types.
+    """
+    ids = sorted({_short_id(openalex_id) for openalex_id in openalex_ids if openalex_id})
+    dates = f"from_publication_date:{since},to_publication_date:{until or date.today().isoformat()}"
+    seen: set[str] = set()
+    for start in range(0, len(ids), OPENALEX_CHUNK_SIZE):
+        parts = ["author.id:" + "|".join(ids[start:start + OPENALEX_CHUNK_SIZE]), dates]
+        if types:
+            parts.append(f"type:{types}")
+        for work in _iter_works(",".join(parts)):
+            if work["id"] not in seen:
+                seen.add(work["id"])
+                yield work
+    logger.info("openalex works by authors: %d authors, %d distinct works", len(ids), len(seen))
 
 
 def fetch_authors_details(openalex_ids: list[str]) -> dict[str, dict[str, Any]]:

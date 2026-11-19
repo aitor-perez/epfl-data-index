@@ -37,13 +37,13 @@
 
   <!-- Title + legend -->
   <text x="40" y="44" font-size="20" font-weight="700">edi_pipeline — planned pipeline</text>
-  <text x="40" y="66" class="note">All HTTP goes through get_json (retries on 403/429, polite delay). No cache: every run fetches fresh data.</text>
+  <text x="40" y="66" class="note">Downloads go year by year: the current year is fetched fresh, past years come from a cache refreshed every 30 days.</text>
   <rect x="800" y="31" width="18" height="13" rx="2" class="done"/><text x="824" y="42">exists today</text>
   <rect x="920" y="31" width="18" height="13" rx="2" class="todo"/><text x="944" y="42">to build</text>
   <rect x="1030" y="31" width="18" height="13" rx="2" class="opt"/><text x="1054" y="42">optional / TBD</text>
 
   <!-- ===== 1 · Fetch ===== -->
-  <text x="56" y="106" class="bandt">1 · Fetch, last 10 years</text>
+  <text x="56" y="106" class="bandt">1 · Fetch, 2016–2026 (current year − 10, to today)</text>
 
   <rect x="60" y="140" width="250" height="118" rx="6" class="done"/>
   <text x="74" y="162" class="h">Infoscience</text>
@@ -119,27 +119,27 @@
   <text x="744" y="602" class="h">Open questions</text>
   <text x="744" y="622">• cluster containing two scipers?</text>
   <text x="744" y="640">• one wrong link can pull in a namesake,</text>
-  <text x="744" y="656">  and step 4 then fetches their whole history</text>
+  <text x="744" y="656">  and step 4 then fetches all their works in the window</text>
 
   <!-- units travel down the right edge -->
   <path d="M1150,258 V963" class="edge"/>
   <text x="1140" y="702" class="lbl" text-anchor="end">unit details + current members</text>
 
   <!-- ===== 4 · Expand ===== -->
-  <text x="56" y="732" class="bandt">4 · Expand to full history</text>
+  <text x="56" y="732" class="bandt">4 · Expand by author</text>
 
   <path d="M300,675 V743" class="edge"/>
   <path d="M585,675 V743" class="edge"/>
 
-  <rect x="60" y="745" width="330" height="80" rx="6" class="todo"/>
-  <text x="74" y="767" class="h">OpenAlex works by author ID</text>
-  <text x="74" y="787">batches of ≤ 100 IDs, no date cutoff</text>
-  <text x="74" y="807" class="note">generalizes fetch_works_by_author (1 ID)</text>
+  <rect x="60" y="745" width="330" height="80" rx="6" class="done"/>
+  <text x="74" y="767" class="h">OpenAlex works by author IDs</text>
+  <text x="74" y="787" class="mono">fetch_works_by_authors(ids)</text>
+  <text x="74" y="807" class="note">same window, EPFL affiliation not required</text>
 
-  <rect x="420" y="745" width="330" height="80" rx="6" class="todo"/>
-  <text x="434" y="767" class="h">Infoscience pubs by person UUID</text>
-  <text x="434" y="787">new fetcher, no date cutoff</text>
-  <text x="434" y="807" class="note">covers profiles without a sciper too</text>
+  <rect x="420" y="745" width="330" height="80" rx="6" class="done"/>
+  <text x="434" y="767" class="h">Infoscience: no second download</text>
+  <text x="434" y="787" class="mono">publications_of(kept profiles)</text>
+  <text x="434" y="807" class="note">filters the step 1 records locally</text>
 
   <path d="M225,825 V843" class="edge"/>
   <path d="M585,825 V843" class="edge"/>
