@@ -337,3 +337,81 @@ def test_unit_members_and_researcher_links(monkeypatch):
     assert found["FAC"]["members"] is None  # a larger unit comes without people
     links = units.units_by_member(found, scipers=[100001, "999999"])
     assert links == {"100001": [{"acronym": "LAB-A", "cf": "10659", "name": "Lab A", "position": "Full Professor"}]}
+
+
+# --- author disambiguation (setmatch) ----------------------------------------
+
+def _oa_work(wid, authors):
+    """authors: (author id or None, printed name, author orcid, raw_orcid)"""
+    return {"id": f"https://openalex.org/{wid}", "doi": None, "authorships": [
+        {"author": {"id": f"https://openalex.org/{aid}" if aid else None, "display_name": name, "orcid": orcid},
+         "raw_author_name": name, "raw_orcid": raw}
+        for aid, name, orcid, raw in authors]}
+
+
+def test_setmatch_frames_and_must_links():
+    from edi_pipeline.merge import authors
+
+    pub = parse_publication(_item([
+        {"value": "Bierlaire, Michel", "authority": UUID_A},   # sciper 123456
+        {"value": "Linked, No Sciper", "authority": UUID_B},
+        {"value": "External, Author"},
+    ]))
+    orcid = "0000-0001-2345-6789"
+    work = _oa_work("W1", [
+        ("A1", "Michel Bierlaire", f"https://orcid.org/{orcid}", orcid),           # publisher-confirmed
+        ("A2", "M. Bierlaire", f"https://orcid.org/{orcid}", None),                # assigned by OpenAlex only
+        (None, "External Author", None, None),
+    ])
+    pubs, auths, matches = authors.setmatch_frames([pub], [work], [("pub-1", work["id"]), ("pub-1", "unknown-work")])
+    assert sorted(auths.loc[auths["source"] == "infoscience", "profile_id"]) == [
+        "ext_External_Author", "sciper_123456", f"uuid_{UUID_B}"]
+    assert sorted(auths.loc[auths["source"] == "openalex", "profile_id"]) == ["A1", "A2", "ext_External_Author"]
+    assert len(pubs) == 2 and len(matches) == 1  # the match to an unknown work is left out
+
+    links = authors.orcid_must_links([work], {"123456": f"https://orcid.org/{orcid}"}, scipers=["123456"])
+    assert links.values.tolist() == [["sciper_123456", "infoscience", "A1", "openalex"]]
+    every = authors.orcid_must_links([work], {"123456": orcid}, scipers=["123456"], confirmed_only=False)
+    assert sorted(every["profile_id_2"]) == ["A1", "A2"]
+    assert authors.orcid_must_links([work], {"123456": orcid}, scipers=[]).empty  # researcher not in the data
+
+
+def test_resolve_authors_keeps_sciper_anchored_clusters():
+    from edi_pipeline.merge import authors
+
+    pub = parse_publication(_item([{"value": "Bierlaire, Michel", "authority": UUID_A}, {"value": "Smith, Jane"}]))
+    work = _oa_work("W1", [("A1", "Michel Bierlaire", None, None), ("A2", "Jane Smith", None, None)])
+    out = authors.resolve_authors([pub], [work], [("pub-1", work["id"])], seed=1)
+    clusters = authors.kept_clusters(out.partition)
+    assert clusters == [{"scipers": ["123456"], "infoscience": [], "openalex": ["A1"]}]  # Jane Smith's cluster is dropped
+
+
+# --- environment and judge ---------------------------------------------------
+
+def test_load_env_project_file_wins_over_shared_credentials(tmp_path, monkeypatch):
+    import os
+    from edi_pipeline import env
+
+    (tmp_path / ".env").write_text("EDI_TEST_BOTH=project\nEDI_TEST_PROJECT=p\n")
+    shared = tmp_path / "credentials.env"
+    shared.write_text("EDI_TEST_BOTH=shared\nEDI_TEST_SHARED=s\nEDI_TEST_SHELL=shared\n")
+    for name in ("EDI_TEST_BOTH", "EDI_TEST_PROJECT", "EDI_TEST_SHARED"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("EDI_TEST_SHELL", "shell")
+    monkeypatch.setenv("P_DATA_CREDENTIALS_FILE", str(shared))
+    env.load_env(tmp_path / ".env")
+    assert (os.environ["EDI_TEST_BOTH"], os.environ["EDI_TEST_PROJECT"]) == ("project", "p")
+    assert (os.environ["EDI_TEST_SHARED"], os.environ["EDI_TEST_SHELL"]) == ("s", "shell")
+    for name in ("EDI_TEST_BOTH", "EDI_TEST_PROJECT", "EDI_TEST_SHARED"):
+        monkeypatch.delenv(name, raising=False)
+    env.load_env(tmp_path / "missing.env")  # a missing project file is skipped
+
+
+def test_rcp_judge_only_when_configured(monkeypatch):
+    from edi_pipeline import config
+    from edi_pipeline.merge import authors
+
+    monkeypatch.setattr(config, "RCP_BASE_URL", None)
+    assert authors.rcp_judge() is None
+    monkeypatch.setattr(config, "RCP_BASE_URL", "http://localhost:9/v1")
+    assert isinstance(authors.rcp_judge(), authors.setmatch.OpenAICompatibleJudge)

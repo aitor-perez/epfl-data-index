@@ -27,9 +27,9 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from pathlib import Path
 
-from dotenv import load_dotenv
+from edi_pipeline.env import load_env
 
-load_dotenv()  # before edi_pipeline: its config reads env vars at import time
+load_env()  # before the rest of edi_pipeline: its config reads env vars at import time
 
 from edi_pipeline.download import (
     download_infoscience,

@@ -30,13 +30,35 @@ WAIT_ON_RETRY = (2, 10, 30, 60, 120, 300)
 MAX_RETRY_AFTER_SECONDS = 3600
 RETRY_AFTER_MARGIN_SECONDS = 5
 
-# Free API key from https://openalex.org/settings/api. Without it, requests
-# share the small per-IP daily budget.
+# Free API key from https://openalex.org/settings/api. Without it, OpenAlex
+# refuses to page past the first results. OPENALEX_API_KEY is the name to
+# use; the other two are older names, still read.
 OPENALEX_API_KEY = (
-    os.getenv("EDI_PIPELINE_OPENALEX_API_KEY")
-    or os.getenv("OPENALEX_API_KEY")
+    os.getenv("OPENALEX_API_KEY")
+    or os.getenv("EDI_PIPELINE_OPENALEX_API_KEY")
     or os.getenv("API_KEY_OPENALEX")
 )
+
+# LLM judge of the author disambiguation: EPFL's RCP inference service, an
+# OpenAI-compatible endpoint. Only the endpoint and its key are environment
+# settings, named after the service. No base URL means no judge.
+RCP_BASE_URL = os.getenv("RCP_BASE_URL")
+RCP_API_KEY = os.getenv("RCP_API_KEY")
+# The judge's model and its sampling preset go together and are defined here,
+# not in the environment: to try another model, change both. On RCP (vLLM),
+# reasoning is switched off server-side through chat_template_kwargs.
+JUDGE_MODEL = "Qwen/Qwen3.6-35B-A3B"
+JUDGE_REQUEST_OPTIONS = {
+    "temperature": 0.7,
+    "top_p": 0.8,
+    "presence_penalty": 1.5,
+    "extra_body": {
+        "top_k": 20,
+        "min_p": 0.0,
+        "repetition_penalty": 1.0,
+        "chat_template_kwargs": {"enable_thinking": False},
+    },
+}
 
 # Publication types fetched from OpenAlex (profdb parity).
 OPENALEX_TYPES = "article|book|book-chapter"
