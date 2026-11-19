@@ -202,11 +202,14 @@ def test_download_years_caches_closed_years_only(tmp_path):
 
     first = run()
     assert calls == [("2024-01-01", "2024-12-31"), ("2025-01-01", "2025-12-31"), ("2026-01-01", "2026-11-19")]
-    assert sorted(p.name for p in (tmp_path / "src").iterdir()) == ["2024.jsonl.gz", "2025.jsonl.gz"]
+    assert sorted(p.name for p in (tmp_path / "src").iterdir()) == ["2024.jsonl.gz", "2025.jsonl.gz", "2026.jsonl.gz"]
 
     calls.clear()
-    assert run() == first  # same records, closed years now read from disk
-    assert calls == [("2026-01-01", "2026-11-19")]  # only the current year is fetched again
+    assert run() == first  # same records, every year now read from disk
+    assert calls == []
+
+    assert run(max_age_days=0) == first
+    assert len(calls) == 3  # nothing is young enough: all three years fetched again
 
     calls.clear()
     run(refresh=True)
@@ -276,3 +279,37 @@ def test_matcher_takes_pipeline_records_directly():
     matches, duplicates = merge.match(infoscience_records, openalex_records)
     assert [(p["id"], w["id"], method) for p, w, method, _ in matches] == [("pub-1", "https://openalex.org/W1", "doi")]
     assert duplicates == []
+
+
+def test_download_openalex_by_doi_caches_per_year(tmp_path, monkeypatch):
+    asked = []
+
+    def fake_by_dois(dois):
+        asked.append(list(dois))
+        return {doi: ({"id": f"W-{doi}"} if "found" in doi else None) for doi in dois}
+
+    monkeypatch.setattr(download.openalex, "fetch_works_by_dois", fake_by_dois)
+    missing = {2025: {"10.1234/found-a", "10.1234/unknown"}, 2026: {"10.1234/found-b"}}
+    run = lambda: list(download.download_openalex_by_doi(missing, cache_dir=tmp_path, today=date(2026, 11, 19)))
+    assert sorted(w["id"] for w in run()) == ["W-10.1234/found-a", "W-10.1234/found-b"]
+    assert asked == [["10.1234/found-a", "10.1234/unknown"], ["10.1234/found-b"]]
+    asked.clear()
+    assert len(run()) == 2
+    assert asked == []  # both years from cache
+
+
+def test_client_errors_are_not_retried(monkeypatch):
+    from edi_pipeline import http_client
+
+    class Response:
+        status_code, headers, text = 400, {}, "bad filter"
+
+    calls, waits = [], []
+    monkeypatch.setattr(http_client.requests, "get", lambda *a, **k: calls.append(1) or Response())
+    monkeypatch.setattr(http_client.time, "sleep", waits.append)
+    try:
+        http_client.get_json("https://example.org")
+        assert False, "should have raised"
+    except RuntimeError as error:
+        assert "HTTP 400" in str(error)
+    assert len(calls) == 1 and waits == []

@@ -1,11 +1,13 @@
-"""Download the pipeline's window year by year, caching the closed years.
+"""Download the pipeline's window year by year, through a cache of one file per year.
 
-The window is made of whole calendar years (see `fetch.window_start`), so
-every year but the current one is closed and can be kept on disk:
+The window is made of whole calendar years (see `fetch.window_start`). Each
+year of each source is kept on disk as one gzipped JSONL of raw records
+(`<cache_dir>/<source>/<year>.jsonl.gz`):
 
-- the current year is fetched fresh on every run and never cached;
-- a past year is read from its cache file, one gzipped JSONL of raw records
-  per source and year (`<cache_dir>/<source>/<year>.jsonl.gz`);
+- every year, the current one included, is read from its file for
+  `max_age_days` (30 by default) and then downloaded again. The current year
+  is downloaded up to the day of the run, so between two downloads it misses
+  the records that appeared since;
 - past years are not frozen at the source (retrospective deposits, authors
   linked to a profile later, OpenAlex reprocessing), so a cache file older
   than `max_age_days` is downloaded again, and `refresh=True` forces it for
@@ -14,6 +16,10 @@ every year but the current one is closed and can be kept on disk:
 A cache file is written to a temporary name and renamed only once its year
 has been downloaded completely: an interrupted run never leaves a partial
 year behind, and resumes from the years already done.
+
+Three sources are downloaded this way: Infoscience publications, OpenAlex
+works affiliated with EPFL, and OpenAlex works looked up by the DOIs of the
+Infoscience records that the EPFL-affiliated download does not contain.
 
 Not cached: `fetch.openalex.fetch_works_by_authors`, whose result depends on
 the set of authors of each run rather than on a year.
@@ -84,18 +90,15 @@ def download_years(
 ) -> Iterator[dict[str, Any]]:
     """Yield the raw records of `source` for each year, from cache where allowed.
 
-    `years` defaults to the pipeline's window. `max_age_days=None` keeps
-    cached years forever; `refresh=True` downloads every year again. Years
-    after the current one are skipped.
+    `years` defaults to the pipeline's window. A year is read from its cache
+    file while that file is younger than `max_age_days` (`None` keeps it
+    forever); `refresh=True` downloads every year again. The current year is
+    downloaded up to today; years after it are skipped.
     """
     today = today or date.today()
     directory = Path(cache_dir or CACHE_DIR) / source
     for year in (window_years(today=today) if years is None else years):
         if year > today.year:
-            continue
-        if year == today.year:
-            logger.info("%s %d: current year, fetching up to %s", source, year, today.isoformat())
-            yield from fetch_range(f"{year}-01-01", today.isoformat())
             continue
         path = directory / f"{year}.jsonl.gz"
         age = _cache_age_days(path)
@@ -103,11 +106,12 @@ def download_years(
         if fresh and not refresh:
             logger.info("%s %d: from cache (%.0f days old)", source, year, age)
             yield from _read(path)
-        else:
-            reason = "refresh requested" if refresh and age is not None else (
-                "not cached yet" if age is None else f"cache is {age:.0f} days old")
-            logger.info("%s %d: fetching (%s)", source, year, reason)
-            yield from _fetch_and_store(fetch_range(f"{year}-01-01", f"{year}-12-31"), path)
+            continue
+        reason = "not cached yet" if age is None else (
+            "refresh requested" if refresh else f"cache is {age:.0f} days old")
+        until = min(date(year, 12, 31), today).isoformat()
+        logger.info("%s %d: fetching up to %s (%s)", source, year, until, reason)
+        yield from _fetch_and_store(fetch_range(f"{year}-01-01", until), path)
 
 
 def download_infoscience(**options: Any) -> Iterator[dict[str, Any]]:
@@ -132,3 +136,28 @@ def download_openalex_epfl(**options: Any) -> Iterator[dict[str, Any]]:
         lambda since, until: openalex.fetch_epfl_works(since, until=until),
         **options,
     )
+
+
+def download_openalex_by_doi(
+    dois_by_year: dict[int, Iterable[str]], **options: Any
+) -> Iterator[dict[str, Any]]:
+    """Raw OpenAlex works looked up by DOI, cached per year like the other downloads.
+
+    The EPFL-affiliated download misses works that OpenAlex holds without an
+    EPFL affiliation (or with no affiliation at all), although Infoscience
+    lists them as EPFL publications. `dois_by_year` gives, for each
+    Infoscience year, the DOIs of that year's records that the EPFL-affiliated
+    download does not contain; the works OpenAlex has for them are yielded.
+
+    A cached year can hold a work that OpenAlex has since tagged as EPFL, so
+    the same work may also come from `download_openalex_epfl`: callers should
+    keep one record per work ID. DOIs unknown to OpenAlex are not recorded.
+    See `download_years` for the options; `years` defaults to the keys of
+    `dois_by_year`.
+    """
+    def fetch_range(since: str, until: str) -> Iterator[dict[str, Any]]:
+        dois = sorted(set(dois_by_year.get(int(since[:4]), ())))
+        return (work for work in openalex.fetch_works_by_dois(dois).values() if work)
+
+    options.setdefault("years", sorted(dois_by_year))
+    return download_years("openalex_by_doi", fetch_range, **options)

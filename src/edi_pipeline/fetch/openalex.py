@@ -123,6 +123,11 @@ def fetch_works_by_dois(dois: list[str]) -> dict[str, dict[str, Any] | None]:
     normalized (bare, lowercase) on both sides.
     """
     clean = sorted({d for d in (normalize_doi(doi) for doi in dois) if d})
+    # "," separates filters and "|" separates values: a DOI holding one cannot be queried this way.
+    unsafe = [doi for doi in clean if "," in doi or "|" in doi]
+    if unsafe:
+        logger.warning("openalex works by DOI: %d DOIs skipped (contain ',' or '|')", len(unsafe))
+        clean = [doi for doi in clean if doi not in unsafe]
     works: dict[str, dict[str, Any] | None] = {}
     for start in range(0, len(clean), OPENALEX_CHUNK_SIZE):
         chunk = clean[start:start + OPENALEX_CHUNK_SIZE]

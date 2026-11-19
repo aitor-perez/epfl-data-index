@@ -73,13 +73,13 @@ Fetch layer for publications and researchers from live sources (no source CSVs),
 
 - **http_client.py** — `get_json`, with retries on 403/429 and a polite delay between requests. A refusal's `Retry-After` header is obeyed; otherwise the waits grow up to 300 s. Infoscience answers 429 with `Retry-After: 900` (15 minutes), with or without a personal token, and it documents no limit: avoid bursts of quick requests, and run bulk downloads off-peak as its API page asks. It never caches; caching is done per year by `download.py`.
 - **fetch/\_\_init\_\_.py** — Shared helpers: `normalize_doi` (bare, lowercase; applied to both sources) and `window_start(n)`, the lower date bound of the pipeline's window: 1 January, n calendar years before the current year (10 by default).
-- **config.py** — API endpoints, page sizes and HTTP behaviour; optional credentials from env; yearly cache location (`EDI_PIPELINE_CACHE_DIR`, default `data/cache`) and maximum age (30 days).
-- **download.py** — Downloads the window year by year (`download_infoscience`, `download_openalex_epfl`, both yielding raw records). The current year is always fetched fresh and never cached. Each past year is kept as `<cache_dir>/<source>/<year>.jsonl.gz` and read from there, unless the file is older than 30 days or `refresh=True` is passed, in which case that year is downloaded again. Past years are not frozen at the source (retrospective deposits, authors linked to a profile later, OpenAlex reprocessing), which is why the cache expires. A year's file appears only once that year is completely downloaded, so an interrupted run resumes from the years already done. `fetch_works_by_authors` is not cached: its result depends on each run's set of authors. Incremental harvesting through Infoscience's `lastModified` was considered and set aside: it cannot see deleted records, so full runs would still be needed.
+- **config.py** — API endpoints, page sizes and HTTP behaviour; optional credentials from env; yearly cache location (`EDI_PIPELINE_CACHE_DIR`, default `data/cache`) and maximum age (30 days, for every year).
+- **download.py** — Downloads the window year by year (`download_infoscience`, `download_openalex_epfl` and `download_openalex_by_doi`, all yielding raw records). Each year is kept as `<cache_dir>/<source>/<year>.jsonl.gz` and read from there. A year's file is reused for 30 days, then that year is downloaded again; `refresh=True` downloads every year again. The current year is treated like the others: it is downloaded up to the day of the run, so until its next download it misses the records that appeared since (up to 30 days). Past years are not frozen at the source (retrospective deposits, authors linked to a profile later, OpenAlex reprocessing), which is why the cache expires. A year's file appears only once that year is completely downloaded, so an interrupted run resumes from the years already done. `fetch_works_by_authors` is not cached: its result depends on each run's set of authors. Incremental harvesting through Infoscience's `lastModified` was considered and set aside: it cannot see deleted records, so full runs would still be needed.
 - **fetch/infoscience.py** — EPFL publications since a date: `configuration=RELATION.OrgUnit.publications` scoped to the EPFL root OrgUnit, `dc.date.issued` range capped at today (forthcoming deposits with future dates are left out; OpenAlex is capped the same way), 100/page. Deliberately *not* filtered on `epfl.writtenAt` (retrospective deposits are kept; the value is captured as `written_at`) and *not* using `projection=preventMetadataSecurity` (it strips the `cris.virtual.*` fields). The download is slow, roughly 4 s per page (about 64,000 records for 10 years). `publications_of` keeps the records of given profiles locally, by authority UUID or sciper. `parse_publication` returns each author as `{name, sciper, authority}`. `authority` is the Infoscience person UUID, kept even when there is no sciper. The sciper is resolved by aligning that UUID with `cris.virtualsource.sciperId`/`cris.virtual.sciperId` (never by position in the author list, which gives wrong scipers: see the module docstring), or read from a pending link `will be referenced::SCIPER-ID::<sciper>`, which has no UUID. `parse_publication` also keeps `dc.description.sponsorship` for lab attribution (never `cris.virtual.department` — that reflects the author's *current* affiliation).
 - **fetch/openalex.py** — Works with an EPFL-affiliated authorship since a date (`fetch_epfl_works`: `authorships.institutions.lineage:I5124864`, so EPFL's child institutions are included, all types by default, cursor paging at 200/page, yields lazily). Also works by DOI (OR-filter chunks of ≤100; the field name is written once, `doi:a|b`), works since a date by batches of ≤100 author IDs, with no EPFL affiliation required (`fetch_works_by_authors`, each work yielded once), author details, and `parse_work` (normalized DOI, rebuilt abstract, authors with `raw_author_name`, ORCID and an `is_epfl` flag that follows the same lineage rule). List endpoints truncate `authorships` at 100, so any work returned with 100 is re-fetched on its own to get the full author list (`complete_authorships`).
 - **fetch/units.py** — Unit lookup by acronym via `https://search-api.epfl.ch/api/unit` (name, CF, path, head). Sponsorship unit codes stay canonical for publication attribution. The API's current member list is unused today; it is planned as the source of the researcher–unit relation (see *Planned pipeline*).
 - **fetch/orcid.py** — sciper → ORCID map from EPFL's ORCID integration service (fetched, not yet consumed).
-- **merge/publications.py** — One-to-one matching of Infoscience records and OpenAlex works: same DOI first, then same normalized title with agreeing authors (surname trigram overlap). Same-DOI pairs left out are reported as duplicates. It takes the pipeline's records directly (`infoscience_record`, `openalex_record`, `by_id`), with no intermediate file. Run by `scripts/reconcile_publications.py`, which downloads both sources side by side through the yearly cache (`--since YEAR`, `--refresh`) and writes `data/matches.csv` and `data/duplicates.csv`. Method and results: `src/edi_pipeline/docs/publication-reconciliation.md`.
+- **merge/publications.py** — One-to-one matching of Infoscience records and OpenAlex works: same DOI first, then same normalized title with agreeing authors (surname trigram overlap). Same-DOI pairs left out are reported as duplicates. It takes the pipeline's records directly (`infoscience_record`, `openalex_record`, `by_id`), with no intermediate file. Run by `scripts/reconcile_publications.py`, which downloads both sources side by side through the yearly cache (`--since YEAR`, `--refresh`), adds the OpenAlex works found by DOI, and writes `data/matches.csv` and `data/duplicates.csv`. Method and results: `src/edi_pipeline/docs/publication-reconciliation.md`.
 
 Researchers are *not* fetched as profiles: they are derived from publication authors downstream, so a researcher appears only if they authored a publication since the cutoff date.
 
@@ -87,7 +87,7 @@ Researchers are *not* fetched as profiles: they are derived from publication aut
 
 The goal is to use OpenAlex to recover researchers' history before they joined EPFL, which Infoscience barely covers for recent hires. Everything is limited to a window of whole calendar years, in every step and both sources: from 1 January ten years before the current year up to today (2016–2026 during 2026). The window only moves on 1 January, and every year but the current one is closed, which is what lets `download.py` cache past years. This replaces the approach `listeprof` used: there, OpenAlex author IDs were inferred from Infoscience DOIs and works were fetched over a fixed year window.
 
-1. **Fetch** the window (2016–2026 during 2026) of Infoscience publications and of OpenAlex works affiliated with EPFL.
+1. **Fetch** the window (2016–2026 during 2026) of Infoscience publications and of OpenAlex works affiliated with EPFL. Then look up in OpenAlex, by DOI, the Infoscience records that the EPFL-affiliated download does not contain (see *What the two sources cover*).
 2. **Match publications** Infoscience ↔ OpenAlex with a fuzzy matcher that does not rely on DOI alone. Gaël owns it; the first version is `merge/publications.py`.
 3. **Disambiguate authors** with `setmatch`, which groups author profiles from both sources into clusters.
 4. **Keep sciper-anchored clusters**: a cluster is kept if it contains at least one Infoscience profile with a sciper, and then *all* its profiles are kept. For example, two Infoscience profiles (one with a sciper, one without) plus three OpenAlex profiles → all five are kept.
@@ -97,7 +97,7 @@ The goal is to use OpenAlex to recover researchers' history before they joined E
 Implications for the current code:
 
 - The fetchers for steps 1 and 5 exist (`fetch_publications_since`, `fetch_epfl_works`, `fetch_works_by_authors`, `publications_of`). Still missing on the fetch side: the search-api member lists.
-- `fetch_works_by_dois` becomes secondary to the fuzzy matcher.
+- `fetch_works_by_dois` is used for the second OpenAlex pass, on the Infoscience DOIs missing from the EPFL-affiliated download (`download_openalex_by_doi`, cached per Infoscience year).
 - The current member list from `fetch/units.py` (search-api) will now be used, for the researcher–unit relation below.
 
 Two separate unit relations, recorded independently:
@@ -109,7 +109,33 @@ Scope assumptions: researchers are people with publications in Infoscience, and 
 
 The two relations mean different things: where the work was attributed versus where the person is now. They are not expected to agree and must not be reconciled with each other.
 
+#### What the two sources cover (findings of 2026-11-19)
+
+Measured on Infoscience 2024–2025 (13,788 records) against OpenAlex works affiliated with EPFL, 2023–2025, with the first version of the matcher. Before the DOI lookup was added, 70% of the Infoscience records and 74% of the 2024–2025 OpenAlex works had a match. (The first full run reported 52.7% for OpenAlex: its extra year, 2023, has no Infoscience counterpart in a 2024 run.)
+
+Why 4,103 Infoscience records had no match:
+
+| Reason | Records | Mostly |
+|---|---|---|
+| No DOI in Infoscience | 1,666 | master theses (340), conference presentations (190), conference papers (188), patents (125) |
+| DOI unknown to OpenAlex | 1,336 | doctoral theses (789), preprints (235), conference papers (97), datasets (77) |
+| In OpenAlex under the same DOI, but not tagged EPFL | 1,082 | journal articles (about 630), conference papers (about 220) |
+| Dated outside the window, or duplicates | 19 | |
+
+- The first two rows are a difference of coverage: Infoscience holds work types that OpenAlex does not have.
+- The third row was a gap in the fetch, now closed by the DOI lookup. OpenAlex lists 652 of these works with affiliations of which none is EPFL, and 430 with no affiliation at all. They are EPFL papers: 1,076 of the 1,082 have an author with a sciper in Infoscience. Recovering them brings the Infoscience match rate to about 78%, and gives author disambiguation the OpenAlex profiles of those authors.
+
+Why 3,366 OpenAlex works (2024–2025) had no match:
+
+- Types Infoscience rarely holds: preprints (962), datasets (414), peer reviews (164), errata (61); many are arXiv or Zenodo records.
+- 1,167 are articles, reviews or conference papers with a publisher DOI that is absent from Infoscience 2024–2025. In 710 of them a single author is tagged EPFL. Whether some are in Infoscience under another year was not checked.
+
+The matcher itself misses little: among the unmatched records of both sides, 10 pairs share a title (7 rejected on the author score, e.g. "Fei, Deng" against "Deng, Fei", or a name in Cyrillic) and 25 pairs have near-identical titles with agreeing authors but different DOIs (a preprint and its published article, a dataset and its paper). That is about 35 candidates for some 9,700 pairs. The near-title search only compared titles sharing their first or last 30 characters.
+
 Open questions:
+
+- **Which work types to index.** Not decided. Both sources are downloaded with all types. From Infoscience only: master theses, doctoral theses, patents, conference presentations and posters, student work. From OpenAlex only: preprints, datasets, peer reviews, errata, supplementary material. Related: when a preprint and its published article are both present, are they one publication or two?
+- **OpenAlex works with one EPFL-tagged author and no Infoscience record.** Publications missing from Infoscience, or wrong affiliations in OpenAlex? They enter the pipeline through the EPFL-affiliated download either way.
 
 - **Chained matches.** If clusters are joined through links, one wrong link can pull a namesake into a sciper's cluster, and step 5 then fetches all that person's works in the window. What should happen to a cluster that contains two scipers?
 - **Output format of the fuzzy matcher.** For example, (Infoscience UUID, OpenAlex work ID, score) pairs.

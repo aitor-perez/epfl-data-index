@@ -53,6 +53,9 @@ def get_json(url: str, headers: dict[str, str] | None = None) -> Any:
                 logger.warning("HTTP %s for %s — retrying in %.0fs", response.status_code, url, wait)
                 time.sleep(wait)
                 continue
+            if 400 <= response.status_code < 500:
+                # A malformed or unauthorized request stays so: fail now instead of retrying for minutes.
+                raise RuntimeError(f"GET {url} failed: HTTP {response.status_code} {response.text[:200]}")
             response.raise_for_status()
             data = response.json()
             time.sleep(POLITE_DELAY_SECONDS)  # be polite to the APIs

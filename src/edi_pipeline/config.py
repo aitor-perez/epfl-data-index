@@ -41,8 +41,8 @@ OPENALEX_API_KEY = (
 # Publication types fetched from OpenAlex (profdb parity).
 OPENALEX_TYPES = "article|book|book-chapter"
 
-# Yearly download cache (edi_pipeline/download.py). Closed years are kept on
-# disk and downloaded again once older than CACHE_MAX_AGE_DAYS; the current
-# year is always fetched fresh. `data/` is git-ignored.
+# Yearly download cache (edi_pipeline/download.py). Every year, the current
+# one included, is kept on disk and downloaded again once older than
+# CACHE_MAX_AGE_DAYS. `data/` is git-ignored.
 CACHE_DIR = os.getenv("EDI_PIPELINE_CACHE_DIR", "data/cache")
 CACHE_MAX_AGE_DAYS = 30
